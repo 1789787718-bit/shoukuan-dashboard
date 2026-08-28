@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>北斗天宏平台车辆收款可视化系统</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#0f172a',
+                        darkcard: '#1e293b',
+                        darkborder: '#334155'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- ECharts CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <!-- Vue 3 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-darkbg dark:text-slate-100 min-h-screen transition-colors duration-200">
+    <div id="app" v-cloak class="flex flex-col min-h-screen">
+        
+        <!-- 顶部导航栏 -->
+        <header class="sticky top-0 z-40 bg-white/90 dark:bg-darkcard/90 backdrop-blur border-b border-slate-200 dark:border-darkborder px-6 py-3.5 shadow-sm">
+            <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="flex items-center space-x-3.5">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+                        <i class="fas fa-satellite-dish text-lg"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <h1 class="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-300 bg-clip-text text-transparent">
+                                天宏平台车辆收款分析可视化系统
+                            </h1>
+                            <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                                2026年5月
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                            数据源：天宏平台 ({{ overview.kpis ? overview.kpis.total_records.toLocaleString() : 0 }} 条明细) · 更新时间：{{ overview.generated_at || '--' }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-3">
+                    <button @click="reloadExcel" :disabled="reloading" class="inline-flex items-center px-3.5 py-2 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition">
+                        <i :class="['fas fa-sync-alt mr-1.5', reloading ? 'fa-spin text-blue-500' : '']"></i>
+                        {{ reloading ? '正在重载...' : '重新同步 Excel' }}
+                    </button>
+
+                    <button @click="exportCurrentFiltered" class="inline-flex items-center px-3.5 py-2 text-xs font-medium rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition">
+                        <i class="fas fa-file-excel mr-1.5"></i> 导出 CSV / Excel
+                    </button>
+
+                    <button @click="toggleTheme" class="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition">
+                        <i :class="isDark ? 'fas fa-sun text-amber-400' : 'fas fa-moon text-indigo-600'"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主体内容 -->
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 md:px-6 py-6 space-y-6">
+            
+            <!-- 6大核心指标卡片 -->
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div class="p-4 rounded-2xl bg-white dark:bg-darkcard border border-slate-200 dark:border-darkborder shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">服务车辆总数</span>
+                        <span class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-sm">
+                            <i class="fas fa-truck"></i>
+                        </span>
+                    </div>
+                    <div class="mt-2">
+                        <div class="text-2xl font-bold text-slate-900 dark:text-white">
+                            {{ formatNumber(kpis.total_vehicles) }} <span class="text-xs font-normal text-slate-500">辆</span>
+                        </div>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 truncate">
+                            覆盖 <span class="font-semibold text-slate-700 dark:text-slate-300">{{ formatNumber(kpis.total_orgs) }}</span> 家企业/客户
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-white dark:bg-darkcard border border-slate-200 dark:border-darkborder shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">总应收款项</span>
+                        <span class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-sm">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                        </span>
+                    </div>
+                    <div class="mt-2">
+                        <div class="text-2xl font-bold text-slate-900 dark:text-white">
+                            ¥{{ formatMoney(kpis.total_receivable) }}
+                        </div>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                            5大类收费合计
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-white dark:bg-darkcard border border-slate-200 dark:border-darkborder shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">总实收金额</span>
+                        <span class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-sm">
+                            <i class="fas fa-hand-holding-usd"></i>
+                        </span>
+                    </div>
+                    <div class="mt-2">
+                        <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                            ¥{{ formatMoney(kpis.total_received) }}
+                        </div>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                            已结清 <span class="font-semibold text-emerald-600">{{ formatNumber(kpis.cleared_count) }}</span> 辆
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-white dark:bg-darkcard border border-slate-200 dark:border-darkborder shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">未收/欠款总额</span>
+                        <span class="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 flex items-center justify-center text-sm">
+                            <i class="fas fa-exclamation-circle"></i>
+                        </span>
+                    </div>
+                    <div class="mt-2">
+                        <div class="text-2xl font-bold text-rose-600 dark:text-rose-400">
+                            ¥{{ formatMoney(kpis.total_unreceived) }}
+                        </div>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                            未交款 <span class="font-semibold text-rose-600">{{ formatNumber(kpis.unpaid_count) }}</span> 辆
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-white dark:bg-darkcard border border-slate-200 dark:border-darkborder shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">综合回款达成率</span>
+                        <span class="w-8 h-8 rounded-lg bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 flex items-center justify-center text-sm">
+                            <i class="fas fa-percentage"></i>
+                        </span>
+                    </div>
+                    <div class="mt-2">
+                        <div class="text-2xl font-bold text-cyan-600 dark:text-cyan-400">
+                            {{ kpis.collection_rate }}%
+                        </div>
+                        <div class="w-full bg-slate-100 dark:bg-slate-700 h-1.5 rounded-full mt-2 overflow-hidden">
+                            <div class="bg-gradient-to-r from-blue-500 to-cyan-400 h-full rounded-full" :style="{ width: kpis.collection_rate + '%' }"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-white dark:bg-darkcard border border-slate-200 dark:border-darkborder shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">服务期状态预警</span>
+                        <span class="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center text-sm">
+                            <i class="fas fa-clock"></i>
+                        </span>
+                    </div>
+                    <div class="mt-2">
+                        <div class="text-lg font-bold text-amber-600 dark:text-amber-400">
+                            已过期 {{ formatNumber(kpis.expired_count) }}
+                        </div>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                            30天内到期 <span class="font-semibold text-amber-500">{{ formatNumber(kpis.expiring_30_count) }}</span> 辆
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 导航选项卡 Tabs -->
+            <div class="flex border-b border-slate-200 dark:border-darkborder space-x-2 overflow-x-auto">
+                <button 
+                    v-for="tab in tabs" 
+                    :key="tab.id"
+                    @click="switchTab(tab.id)"
+                    :class="[
+                        'px-4 py-2.5 text-sm font-medium rounded-t-lg transition flex items-center space-x-2 border-b-2 whitespace-nowrap',
+                        activeTab === tab.id 
+                            ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400 bg-white dark:bg-darkcard shadow-sm' 
+                            : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    ]">
+                    <i :class="tab.icon"></i>
+                    <span>{{ tab.name }}</span>
+                </button>
+            </div>
+
+            <!-- Tab 1: 业务全景看板 -->
+            <div v-show="activeTab === 'overview'" class="space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 p-5 rounded-2xl bg-white dark:bg-darkcard border border-slate-200 dark:border-darkborder shadow-sm">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center">
+                                <i class="fas fa-layer-group text-blue-500 mr-2"></i> 五大收费板块收支对比 (应收 vs 实收 vs 欠款)
+                            </h3>
+                            <span class="text-xs text-slate-500">单位：元</span>
+                        </div>
+                        <div id="streamsChart" class="w-full h-80"></div>
+                    </div>
+
+                    <div class="p-5 rounded-2xl bg-white dark:bg-darkcard border border-slate-200 dark:border-darkborder shadow-sm flex flex-col">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center">
+                                <i class="fas fa-chart-pie text-indigo-500 mr-2"></i> 各板块实收贡献分布
+                            </h3>
+                        </div>
+                        <div id="pieChart" class="w-full h-80 flex-1"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div v-for="item in overview.streams" :key="item.name" class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-darkborder">
+                        <div class="flex justify-between items-center text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2">
+                            <span>{{ item.name }}</span>
+                            <span class="px-2 py-0.5 rounded text-[11px] bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                                回款率 {{ item.rate }}%
+                            </span>
+                        </div>
+                        <div class="space-y-1 text-xs">
+                            <div class="flex justify-between text-slate-500">
+                                <span>应收:</span>
+                                <span class="font-medium text-slate-700 dark:text-slate-200">¥{{ formatMoney(item.receivable) }}</span>
+                            </div>
+                            <div class="flex justify-between text-emerald-600 dark:text-emerald-400">
+                                <span>实收:</span>
+                                <span class="font-bold">¥{{ formatMoney(item.received) }}</span>
+                            </div>
+                            <div class="flex justify-between text-rose-500">
+                                <span>未收:</span>
+                                <span class="font-semibold">¥{{ formatMoney(item.unreceived) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-5 rounded-2xl bg-white dark:bg-darkcard border border-slate-200 dark:border-darkborder shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center">
+                            <i class="fas fa-tags text-emerald-500 mr-2"></i> 业务分类规模与回款统计
+                        </h3>
+                    </div>
+                    <div id="bizCategoryChart" class="w-full h-80"></div>
+                </div>
+            </div>
+
+            <!-- Tab 2: 负责人业绩看板 -->
+            <div v-show="activeTab === 'managers'" class="space-y-6">
+                <div class="p-5 rounded-2xl bg-white dark:bg-darkcard border border-slate-200 dark:border-darkborder shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center">
+                            <i class="fas fa-user-tie text-blue-500 mr-2"></i> 业务负责人业绩与欠款总览
+                        </h3>
+                    </div>
+                    <div id="managerChart" class="w-full h-80"></div>
+                </div>
+
+                <div class="p-5 rounded-2xl bg-white dark:bg-darkcard border border-slate-200 dark:border-darkborder shadow-sm overflow-hidden">
+                    <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center">
+                        <i class="fas fa-list-ol text-indigo-500 mr-2"></i> 负责人综合考核明细表
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                <tr>
+                                    <th class="py-3 px-4">排名</th>
+                                    <th class="py-3 px-4">负责人</th>
+                                    <th class="py-3 px-4">负责车辆数</th>
+                                    <th class="py-3 px-4">应收总额 (元)</th>
+                                    <th class="py-3 px-4">实收金额 (元)</th>
+                                    <th class="py-3 px-4">未收欠款 (元)</th>
+                                    <th class="py-3 px-4">回款达成率</th>
+                                    <th class="py-3 px-4 text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200 dark:divide-darkborder">
+                                <tr v-for="(mgr, index) in overview.managers" :key="mgr.manager" class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                                    <td class="py-3 px-4 font-bold text-slate-500">
+                                        <span :class="[
+                                            'w-6 h-6 inline-flex items-center justify-center rounded-full text-xs',
+                                            index === 0 ? 'bg-amber-100 text-amber-700 font-bold' :
+                                            index === 1 ? 'bg-slate-200 text-slate-700 font-bold' :
+                                            index === 2 ? 'bg-orange-100 text-orange-700 font-bold' : 'text-slate-500'
+                                        ]">{{ index + 1 }}</span>
+                                    </td>
+                                    <td class="py-3 px-4 font-semibold text-slate-900 dark:text-white">{{ mgr.manager }}</td>
+                                    <td class="py-3 px-4">{{ mgr.vehicle_count.toLocaleString() }} 辆</td>
+                                    <td class="py-3 px-4 font-medium">¥{{ formatMoney(mgr.receivable) }}</td>
+                                    <td class="py-3 px-4 font-bold text-emerald-600 dark:text-emerald-400">¥{{ formatMoney(mgr.received) }}</td>
+                                    <td class="py-3 px-4 font-semibold text-rose-500">¥{{ formatMoney(mgr.unreceived) }}</td>
+                                    <td class="py-3 px-4">
+                                        <div class="flex items-center space-x-2">
+                                            <div class="w-20 bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                                                <div class="bg-blue-600 h-full rounded-full" :style="{ width: Math.min(mgr.rate, 100) + '%' }"></div>
+                                            </div>
+                                            <span class="text-xs font-semibold">{{ mgr.rate }}%</span>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 px-4 text-center">
+                                        <button @click="filterByManager(mgr.manager)" class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
+                                            查看名下车辆 →
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: 欠款风险与大客户监控 -->
+            <div v-show="activeTab === 'risk'" class="space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="p-5 rounded-2xl bg-white dark:bg-darkcard border border-slate-200 dark:border-darkborder shadow-sm">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center">
+                                <i class="fas fa-building text-rose-500 mr-2"></i> Top 20 欠款大客户排行榜
+                            </h3>
+                            <span class="text-xs text-slate-500">点击排行榜柱条可直接下钻筛选</span>
+                        </div>
+                        <div id="debtorsChart" class="w-full h-96"></div>
+                    </div>
+
+                    <div class="p-5 rounded-2xl bg-white dark:bg-darkcard border border-slate-200 dark:border-darkborder shadow-sm">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center">
+                                <i class="fas fa-calendar-alt text-amber-500 mr-2"></i> 服务期到期年份分布 (账龄预警)
+                            </h3>
+                        </div>
+                        <div id="timelineChart" class="w-full h-96"></div>
+                    </div>
+                </div>
+
+                <div class="p-5 rounded-2xl bg-white dark:bg-darkcard border border-slate-200 dark:border-darkborder shadow-sm">
+                    <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center">
+                        <i class="fas fa-exclamation-triangle text-rose-500 mr-2"></i> 重点关注欠款组织清单
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                <tr>
+                                    <th class="py-3 px-4">序号</th>
+                                    <th class="py-3 px-4">企业 / 组织名称</th>
+                                    <th class="py-3 px-4">欠费车辆数</th>
+                                    <th class="py-3 px-4">总应收额</th>
+                                    <th class="py-3 px-4">已收金额</th>
+                                    <th class="py-3 px-4">欠款总额</th>
+                                    <th class="py-3 px-4 text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200 dark:divide-darkborder">
+                                <tr v-for="(debtor, idx) in overview.top_debtors" :key="debtor.org_name" class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                                    <td class="py-3 px-4 font-bold text-slate-400">{{ idx + 1 }}</td>
+                                    <td class="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200 max-w-xs truncate" :title="debtor.org_name">
+                                        {{ debtor.org_name }}
+                                    </td>
+                                    <td class="py-3 px-4 font-semibold text-rose-600">{{ debtor.debt_vehicles }} 辆</td>
+                                    <td class="py-3 px-4">¥{{ formatMoney(debtor.receivable) }}</td>
+                                    <td class="py-3 px-4 text-emerald-600">¥{{ formatMoney(debtor.received) }}</td>
+                                    <td class="py-3 px-4 font-bold text-rose-600 dark:text-rose-400">¥{{ formatMoney(debtor.unreceived) }}</td>
+                                    <td class="py-3 px-4 text-center">
+                                        <button @click="filterByOrg(debtor.org_name)" class="px-2.5 py-1 text-xs rounded bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium hover:bg-blue-100">
+                                            查看名下车辆
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 4: 车辆明细多维检索与档案 -->
+            <div v-show="activeTab === 'explorer'" class="space-y-6">
+                <div class="p-5 rounded-2xl bg-white dark:bg-darkcard border border-slate-200 dark:border-darkborder shadow-sm space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">关键词搜索</label>
+                            <div class="relative">
+                                <i class="fas fa-search absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                                <input 
+                                    type="text" 
+                                    v-model="filters.keyword" 
+                                    @input="debounceSearch"
+                                    placeholder="车牌 / 客户 / 备注 / 设备..." 
+                                    class="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">业务负责人</label>
+                            <select 
+                                v-model="filters.manager" 
+                                @change="fetchRecords(1)"
+                                class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="全部">全部负责人</option>
+                                <option v-for="m in overview.options.managers" :key="m" :value="m">{{ m }}</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">业务大类</label>
+                            <select 
+                                v-model="filters.biz_category" 
+                                @change="fetchRecords(1)"
+                                class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="全部">全部类别</option>
+                                <option v-for="b in overview.options.biz_categories" :key="b" :value="b">{{ b }}</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">收款状态</label>
+                            <select 
+                                v-model="filters.payment_status" 
+                                @change="fetchRecords(1)"
+                                class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option v-for="p in overview.options.payment_statuses" :key="p" :value="p">{{ p }}</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">服务到期状态</label>
+                            <div class="flex space-x-2">
+                                <select 
+                                    v-model="filters.expiry_status" 
+                                    @change="fetchRecords(1)"
+                                    class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option v-for="e in overview.options.expiry_statuses" :key="e" :value="e">{{ e }}</option>
+                                </select>
+                                <button @click="resetFilters" class="px-3 py-1.5 text-xs rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-medium">
+                                    重置
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between pt-3 border-t border-slate-100 dark:border-darkborder text-xs text-slate-600 dark:text-slate-300">
+                        <div class="flex items-center space-x-4">
+                            <span>筛选结果：<strong class="text-blue-600 dark:text-blue-400">{{ tableData.total.toLocaleString() }}</strong> 辆车</span>
+                            <span>总应收：<strong class="text-slate-800 dark:text-slate-100">¥{{ formatMoney(tableData.summary.total_receivable) }}</strong></span>
+                            <span>总已收：<strong class="text-emerald-600">¥{{ formatMoney(tableData.summary.total_received) }}</strong></span>
+                            <span>总欠款：<strong class="text-rose-600">¥{{ formatMoney(tableData.summary.total_unreceived) }}</strong></span>
+                            <span>回款达成率：<strong class="text-cyan-600">{{ tableData.summary.collection_rate }}%</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-5 rounded-2xl bg-white dark:bg-darkcard border border-slate-200 dark:border-darkborder shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase select-none">
+                                <tr>
+                                    <th class="py-3 px-3">序号</th>
+                                    <th class="py-3 px-3 cursor-pointer" @click="sortByColumn('plate_no')">
+                                        车牌号码 <i :class="getSortIcon('plate_no')"></i>
+                                    </th>
+                                    <th class="py-3 px-3 cursor-pointer" @click="sortByColumn('org_name')">
+                                        所属组织 / 客户 <i :class="getSortIcon('org_name')"></i>
+                                    </th>
+                                    <th class="py-3 px-3">业务类别</th>
+                                    <th class="py-3 px-3 cursor-pointer" @click="sortByColumn('manager')">
+                                        负责人 <i :class="getSortIcon('manager')"></i>
+                                    </th>
+                                    <th class="py-3 px-3 cursor-pointer" @click="sortByColumn('primary_due_date')">
+                                        服务到期日 <i :class="getSortIcon('primary_due_date')"></i>
+                                    </th>
+                                    <th class="py-3 px-3 cursor-pointer" @click="sortByColumn('total_receivable')">
+                                        总应收 <i :class="getSortIcon('total_receivable')"></i>
+                                    </th>
+                                    <th class="py-3 px-3 cursor-pointer" @click="sortByColumn('total_received')">
+                                        总实收 <i :class="getSortIcon('total_received')"></i>
+                                    </th>
+                                    <th class="py-3 px-3 cursor-pointer" @click="sortByColumn('total_unreceived')">
+                                        总欠款 <i :class="getSortIcon('total_unreceived')"></i>
+                                    </th>
+                                    <th class="py-3 px-3">收款状态</th>
+                                    <th class="py-3 px-3">到期状态</th>
+                                    <th class="py-3 px-3 text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200 dark:divide-darkborder">
+                                <tr v-for="r in tableData.records" :key="r.id" class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                                    <td class="py-2.5 px-3 text-slate-400">{{ r.id }}</td>
+                                    <td class="py-2.5 px-3 font-bold text-slate-900 dark:text-slate-100">{{ r.plate_no || '--' }}</td>
+                                    <td class="py-2.5 px-3 max-w-xs truncate" :title="r.org_name">{{ r.org_name || '--' }}</td>
+                                    <td class="py-2.5 px-3">
+                                        <span class="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                                            {{ r.biz_category }}
+                                        </span>
+                                    </td>
+                                    <td class="py-2.5 px-3 font-medium">{{ r.manager }}</td>
+                                    <td class="py-2.5 px-3 text-slate-500">{{ r.primary_due_date || '--' }}</td>
+                                    <td class="py-2.5 px-3 font-semibold">¥{{ formatMoney(r.total_receivable) }}</td>
+                                    <td class="py-2.5 px-3 font-bold text-emerald-600 dark:text-emerald-400">¥{{ formatMoney(r.total_received) }}</td>
+                                    <td class="py-2.5 px-3 font-bold" :class="r.total_unreceived > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'">
+                                        ¥{{ formatMoney(r.total_unreceived) }}
+                                    </td>
+                                    <td class="py-2.5 px-3">
+                                        <span :class="getStatusBadgeClass(r.payment_status)">
+                                            {{ r.payment_status }}
+                                        </span>
+                                    </td>
+                                    <td class="py-2.5 px-3">
+                                        <span :class="getExpiryBadgeClass(r.expiry_status)">
+                                            {{ r.expiry_status }}
+                                        </span>
+                                    </td>
+                                    <td class="py-2.5 px-3 text-center">
+                                        <button @click="openVehicleDrawer(r)" class="px-2 py-1 rounded text-xs bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-300 font-medium transition">
+                                            查看档案
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr v-if="tableData.records.length === 0">
+                                    <td colspan="12" class="py-12 text-center text-slate-400">
+                                        <i class="fas fa-inbox text-3xl mb-2 block"></i>
+                                        未检索到符合条件的车辆数据
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-3 border-t border-slate-100 dark:border-darkborder text-xs">
+                        <div class="text-slate-500">
+                            显示第 {{ (tableData.page - 1) * tableData.page_size + 1 }} 至 {{ Math.min(tableData.page * tableData.page_size, tableData.total) }} 条，共 {{ tableData.total.toLocaleString() }} 条
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <select v-model="tableData.page_size" @change="fetchRecords(1)" class="px-2 py-1 rounded border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800 text-xs">
+                                <option :value="20">20 条/页</option>
+                                <option :value="50">50 条/页</option>
+                                <option :value="100">100 条/页</option>
+                                <option :value="200">200 条/页</option>
+                            </select>
+
+                            <button @click="fetchRecords(tableData.page - 1)" :disabled="tableData.page <= 1" class="px-2.5 py-1 rounded border border-slate-300 dark:border-darkborder disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-800">
+                                上一页
+                            </button>
+                            <span class="px-2 font-medium">{{ tableData.page }} / {{ tableData.total_pages }}</span>
+                            <button @click="fetchRecords(tableData.page + 1)" :disabled="tableData.page >= tableData.total_pages" class="px-2.5 py-1 rounded border border-slate-300 dark:border-darkborder disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-800">
+                                下一页
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- 单车全业务档案详情抽屉 Modal -->
+        <div v-if="selectedVehicle" class="fixed inset-0 z-50 overflow-hidden">
+            <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" @click="selectedVehicle = null"></div>
+            <div class="fixed inset-y-0 right-0 max-w-full flex pl-10">
+                <div class="w-screen max-w-xl bg-white dark:bg-darkcard border-l border-slate-200 dark:border-darkborder shadow-2xl flex flex-col">
+                    
+                    <div class="p-6 border-b border-slate-200 dark:border-darkborder flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <h2 class="text-xl font-bold text-slate-900 dark:text-white">
+                                    {{ selectedVehicle.plate_no || '未录入车牌' }}
+                                </h2>
+                                <span :class="getStatusBadgeClass(selectedVehicle.payment_status)">
+                                    {{ selectedVehicle.payment_status }}
+                                </span>
+                                <span :class="getExpiryBadgeClass(selectedVehicle.expiry_status)">
+                                    {{ selectedVehicle.expiry_status }}
+                                </span>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-1">
+                                所属组织：{{ selectedVehicle.org_name || '个人/未录入' }} · 负责人：{{ selectedVehicle.manager }}
+                            </p>
+                        </div>
+                        <button @click="selectedVehicle = null" class="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition">
+                            <i class="fas fa-times text-lg"></i>
+                        </button>
+                    </div>
+
+                    <div class="p-6 flex-1 overflow-y-auto space-y-6">
+                        <div class="grid grid-cols-3 gap-3 p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/40">
+                            <div>
+                                <span class="text-xs text-slate-500 dark:text-slate-400">总应收款</span>
+                                <div class="text-base font-bold text-slate-900 dark:text-white">¥{{ formatMoney(selectedVehicle.total_receivable) }}</div>
+                            </div>
+                            <div>
+                                <span class="text-xs text-slate-500 dark:text-slate-400">总实收款</span>
+                                <div class="text-base font-bold text-emerald-600 dark:text-emerald-400">¥{{ formatMoney(selectedVehicle.total_received) }}</div>
+                            </div>
+                            <div>
+                                <span class="text-xs text-slate-500 dark:text-slate-400">总未收款</span>
+                                <div class="text-base font-bold text-rose-600 dark:text-rose-400">¥{{ formatMoney(selectedVehicle.total_unreceived) }}</div>
+                            </div>
+                        </div>
+
+                        <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-darkborder space-y-2">
+                            <div class="flex items-center justify-between">
+                                <h4 class="font-bold text-sm text-slate-800 dark:text-slate-200 flex items-center">
+                                    <i class="fas fa-wifi text-blue-500 mr-2"></i> 平台服务费
+                                </h4>
+                                <span class="text-xs text-slate-500">服务期止: {{ selectedVehicle.service_due_date || '--' }}</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 text-xs pt-2">
+                                <div><span class="text-slate-400">应收：</span>¥{{ formatMoney(selectedVehicle.service_receivable) }}</div>
+                                <div><span class="text-slate-400">已收：</span><strong class="text-emerald-600">¥{{ formatMoney(selectedVehicle.service_received) }}</strong></div>
+                                <div><span class="text-slate-400">未收：</span><strong class="text-rose-500">¥{{ formatMoney(selectedVehicle.service_unreceived) }}</strong></div>
+                            </div>
+                            <div class="text-[11px] text-slate-400 pt-1" v-if="selectedVehicle.service_received_date">
+                                收款时间：{{ selectedVehicle.service_received_date }}
+                            </div>
+                        </div>
+
+                        <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-darkborder space-y-2">
+                            <div class="flex items-center justify-between">
+                                <h4 class="font-bold text-sm text-slate-800 dark:text-slate-200 flex items-center">
+                                    <i class="fas fa-share-nodes text-indigo-500 mr-2"></i> 第三方收款
+                                </h4>
+                                <span class="text-xs text-slate-500">第三方服务期止: {{ selectedVehicle.third_due_date || '--' }}</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 text-xs pt-2">
+                                <div><span class="text-slate-400">应收：</span>¥{{ formatMoney(selectedVehicle.third_receivable) }}</div>
+                                <div><span class="text-slate-400">已收：</span><strong class="text-emerald-600">¥{{ formatMoney(selectedVehicle.third_received) }}</strong></div>
+                                <div><span class="text-slate-400">未收：</span><strong class="text-rose-500">¥{{ formatMoney(selectedVehicle.third_unreceived) }}</strong></div>
+                            </div>
+                            <div class="text-[11px] text-slate-400 pt-1" v-if="selectedVehicle.third_received_date">
+                                收款时间：{{ selectedVehicle.third_received_date }}
+                            </div>
+                        </div>
+
+                        <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-darkborder space-y-2">
+                            <div class="flex items-center justify-between">
+                                <h4 class="font-bold text-sm text-slate-800 dark:text-slate-200 flex items-center">
+                                    <i class="fas fa-microchip text-emerald-500 mr-2"></i> 设备款项
+                                </h4>
+                                <span class="text-xs text-slate-500">安装时间: {{ selectedVehicle.device_install_date || '--' }}</span>
+                            </div>
+                            <div class="text-xs text-slate-700 dark:text-slate-300">
+                                设备名称：{{ selectedVehicle.device_name || '无设备记录' }}
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 text-xs pt-2">
+                                <div><span class="text-slate-400">应收：</span>¥{{ formatMoney(selectedVehicle.device_receivable) }}</div>
+                                <div><span class="text-slate-400">已收：</span><strong class="text-emerald-600">¥{{ formatMoney(selectedVehicle.device_received) }}</strong></div>
+                                <div><span class="text-slate-400">未收：</span><strong class="text-rose-500">¥{{ formatMoney(selectedVehicle.device_unreceived) }}</strong></div>
+                            </div>
+                            <div class="text-[11px] text-slate-400 pt-1" v-if="selectedVehicle.device_received_date">
+                                收款时间：{{ selectedVehicle.device_received_date }}
+                            </div>
+                        </div>
+
+                        <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-darkborder space-y-2">
+                            <div class="flex items-center justify-between">
+                                <h4 class="font-bold text-sm text-slate-800 dark:text-slate-200 flex items-center">
+                                    <i class="fas fa-tools text-amber-500 mr-2"></i> 售后维护款项
+                                </h4>
+                            </div>
+                            <div class="text-xs text-slate-700 dark:text-slate-300">
+                                售后项目：{{ selectedVehicle.aftersales_item || '无售后记录' }}
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 text-xs pt-2">
+                                <div><span class="text-slate-400">应收：</span>¥{{ formatMoney(selectedVehicle.aftersales_receivable) }}</div>
+                                <div><span class="text-slate-400">已收：</span><strong class="text-emerald-600">¥{{ formatMoney(selectedVehicle.aftersales_received) }}</strong></div>
+                                <div><span class="text-slate-400">未收：</span><strong class="text-rose-500">¥{{ formatMoney(selectedVehicle.aftersales_unreceived) }}</strong></div>
+                            </div>
+                        </div>
+
+                        <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-darkborder space-y-2">
+                            <h4 class="font-bold text-sm text-slate-800 dark:text-slate-200 flex items-center">
+                                <i class="fas fa-sticky-note text-slate-400 mr-2"></i> 其他收款与备注说明
+                            </h4>
+                            <div class="grid grid-cols-2 gap-2 text-xs pt-1">
+                                <div><span class="text-slate-400">其他已收：</span>¥{{ formatMoney(selectedVehicle.other_received) }}</div>
+                                <div><span class="text-slate-400">其他未收：</span>¥{{ formatMoney(selectedVehicle.other_unreceived) }}</div>
+                            </div>
+                            <div class="text-xs text-slate-600 dark:text-slate-300 pt-2 bg-white dark:bg-slate-900 p-2.5 rounded border border-slate-200 dark:border-darkborder">
+                                <strong class="text-slate-400">备注：</strong>{{ selectedVehicle.remark || '暂无备注说明' }}
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="py-4 text-center text-xs text-slate-400 border-t border-slate-200 dark:border-darkborder mt-auto">
+            北斗平台服务车辆收款数据中心 · 天宏平台可视化分析看板
+        </footer>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
