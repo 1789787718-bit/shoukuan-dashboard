@@ -20,22 +20,24 @@ const app = createApp({
                 { id: 'risk', name: '⚠️ 欠款与风险监控', icon: 'fas fa-shield-alt' },
                 { id: 'explorer', name: '🔍 车辆明细与档案', icon: 'fas fa-search' }
             ],
-            // 5大单据模板
+            // 7大标准单据模板
             voucherTemplates: [
                 { type: 'XK', name: '销售出货单', prefix: 'XK', icon: 'fas fa-truck-loading' },
-                { type: 'CF', name: '采购付款单', prefix: 'CF', icon: 'fas fa-hand-holding-usd' },
+                { type: 'XS', name: '销售收款单', prefix: 'XS', icon: 'fas fa-hand-holding-usd' },
+                { type: 'CF', name: '采购付款单', prefix: 'CF', icon: 'fas fa-file-invoice-dollar' },
                 { type: 'CS', name: '采购收货单', prefix: 'CS', icon: 'fas fa-boxes' },
                 { type: 'CT', name: '采购退货单', prefix: 'CT', icon: 'fas fa-undo-alt' },
-                { type: 'XT', name: '销售退货单', prefix: 'XT', icon: 'fas fa-exchange-alt' }
+                { type: 'XT', name: '销售退货单', prefix: 'XT', icon: 'fas fa-exchange-alt' },
+                { type: 'XF', name: '销售退款单', prefix: 'XF', icon: 'fas fa-money-bill-wave' }
             ],
             voucherSearchKw: '',
             voucherSearchResults: [],
             voucher: {
-                type: 'XK',
-                orderNo: 'XK-000-2023-06-05-0001',
-                orderDate: '2023-06-05',
+                type: 'XS',
+                orderNo: 'XS-000-2023-06-10-0001',
+                orderDate: '2023-06-10',
                 warehouse: '湛江总仓',
-                customerName: '徐闻县一顺机动车驾驶员培训有限公司',
+                customerName: '湛江润鑫泰运输有限公司',
                 customerTaxNo: '',
                 customerAddrPhone: '',
                 customerBank: '',
@@ -45,15 +47,15 @@ const app = createApp({
                 companyBank: '',
                 deliveryAddress: '',
                 paymentTerms: '',
-                payType: '应付帐款',
-                payMethod: '银行存款',
-                payAccount: '银行存款-天宏工行',
+                payType: '应收款',
+                payMethod: '库存现金',
+                payAccount: '库存现金',
                 discountRate: 100,
-                summary: '粤G7198学、粤G7989学、粤G9866学、粤G3323学',
-                salesman: '刘美东',
+                summary: '收到封柏交来润鑫泰粤GM3900购买2个摄像头费用',
+                salesman: '封柏',
                 reviewer: '',
                 warehouseKeeper: '',
-                operator: '陈海媚',
+                operator: '系统管理员',
                 clientSign: '',
                 items: [
                     { name: '车载终端', spec: '首航 SH-GDF', unit: '台', count: 3, price: 0, amount: 0, taxRate: '0%', taxAmount: 0 },
@@ -61,7 +63,7 @@ const app = createApp({
                     { name: '移动物联网卡', spec: '100M', unit: '张', count: 4, price: 0, amount: 0, taxRate: '0%', taxAmount: 0 }
                 ],
                 cfItems: [
-                    { refNo: 'CS-000-2023-05-10-0001', date: '2023-05-10', total: 23000, paid: 0, unpaid: 23000, currentPay: 23000 }
+                    { refNo: 'XK-000-2023-06-10-0002', date: '2023-06-10', total: 600, paid: 0, unpaid: 600, currentPay: 600 }
                 ]
             },
             overview: {
@@ -98,16 +100,24 @@ const app = createApp({
         };
     },
     computed: {
+        // 始终固定补齐至 7 行，确保票据物理高度恒定防压缩
         displayItems() {
             const list = [...(this.voucher.items || [])];
-            while (list.length < 6) {
+            while (list.length < 7) {
                 list.push({ name: '', spec: '', unit: '', count: '', price: '', amount: '', taxRate: '', taxAmount: '' });
             }
             return list;
         },
         displayCfItems() {
             const list = [...(this.voucher.cfItems || [])];
-            while (list.length < 6) {
+            while (list.length < 7) {
+                list.push({ refNo: '', date: '', total: '', paid: '', unpaid: '', currentPay: '' });
+            }
+            return list;
+        },
+        displayXsItems() {
+            const list = [...(this.voucher.cfItems || [])];
+            while (list.length < 7) {
                 list.push({ refNo: '', date: '', total: '', paid: '', unpaid: '', currentPay: '' });
             }
             return list;
@@ -125,6 +135,12 @@ const app = createApp({
             return (this.voucher.cfItems || []).reduce((sum, it) => sum + (Number(it.total) || 0), 0);
         },
         totalCfPay() {
+            return (this.voucher.cfItems || []).reduce((sum, it) => sum + (Number(it.currentPay) || 0), 0);
+        },
+        totalXsAmount() {
+            return (this.voucher.cfItems || []).reduce((sum, it) => sum + (Number(it.total) || 0), 0);
+        },
+        totalXsPay() {
             return (this.voucher.cfItems || []).reduce((sum, it) => sum + (Number(it.currentPay) || 0), 0);
         }
     },
@@ -201,7 +217,7 @@ const app = createApp({
             });
         },
         // ==========================================
-        // 单据开具与打印中心方法
+        // 单据开具与打印中心方法 (支持 7 大模板)
         // ==========================================
         selectVoucherTemplate(type) {
             this.voucher.type = type;
@@ -211,7 +227,20 @@ const app = createApp({
             this.voucher.orderDate = dateStr;
             this.voucher.orderNo = `${type}-000-${dateStr}-${rNum}`;
 
-            if (type === 'XK') {
+            if (type === 'XS') {
+                // 销售收款单 (参考图 1 & 2)
+                this.voucher.customerName = '湛江润鑫泰运输有限公司';
+                this.voucher.payType = '应收款';
+                this.voucher.payMethod = '库存现金';
+                this.voucher.payAccount = '库存现金';
+                this.voucher.salesman = '封柏';
+                this.voucher.operator = '系统管理员';
+                this.voucher.summary = '收到封柏交来润鑫泰粤GM3900购买2个摄像头费用';
+                this.voucher.cfItems = [
+                    { refNo: `XK-000-${dateStr}-0002`, date: dateStr, total: 600, paid: 0, unpaid: 600, currentPay: 600 }
+                ];
+            } else if (type === 'XK') {
+                // 销售出货单
                 this.voucher.customerName = '徐闻县一顺机动车驾驶员培训有限公司';
                 this.voucher.salesman = '刘美东';
                 this.voucher.operator = '陈海媚';
@@ -222,6 +251,7 @@ const app = createApp({
                     { name: '移动物联网卡', spec: '100M', unit: '张', count: 4, price: 0, amount: 0, taxRate: '0%', taxAmount: 0 }
                 ];
             } else if (type === 'CF') {
+                // 采购付款单
                 this.voucher.customerName = '深圳市首航电子有限公司';
                 this.voucher.payType = '应付帐款';
                 this.voucher.payMethod = '银行存款';
@@ -233,6 +263,7 @@ const app = createApp({
                     { refNo: `CS-000-${dateStr}-0001`, date: dateStr, total: 23000, paid: 0, unpaid: 23000, currentPay: 23000 }
                 ];
             } else if (type === 'CS') {
+                // 采购收货单
                 this.voucher.customerName = '北京尚阅科技（集团）有限公司';
                 this.voucher.salesman = '封柏';
                 this.voucher.operator = '系统管理员';
@@ -244,6 +275,7 @@ const app = createApp({
                     { name: '移动物联网卡', spec: '100M', unit: '张', count: 150, price: 8, amount: 1200, taxRate: '0%', taxAmount: 0 }
                 ];
             } else if (type === 'CT') {
+                // 采购退货单
                 this.voucher.customerName = '深圳市博实结科技股份有限公司';
                 this.voucher.salesman = '封柏';
                 this.voucher.operator = '系统管理员';
@@ -255,12 +287,25 @@ const app = createApp({
                     { name: '车载终端', spec: 'BSJ-GH13', unit: '台', count: 4, price: 290, amount: 1160, taxRate: '0%', taxAmount: 0 }
                 ];
             } else if (type === 'XT') {
+                // 销售退货单
                 this.voucher.customerName = '湛江智达汽车有限公司';
                 this.voucher.salesman = '封柏';
                 this.voucher.operator = '陈海媚';
                 this.voucher.summary = '粤GD96926（拆机）';
                 this.voucher.items = [
                     { name: '车载终端', spec: 'BSJ-A6XL', unit: '台', count: 1, price: 0, amount: 0, taxRate: '0%', taxAmount: 0 }
+                ];
+            } else if (type === 'XF') {
+                // 销售退款单
+                this.voucher.customerName = '湛江智达汽车有限公司';
+                this.voucher.payType = '冲抵往来';
+                this.voucher.payMethod = '银行存款';
+                this.voucher.payAccount = '银行存款-天宏工行';
+                this.voucher.salesman = '封柏';
+                this.voucher.operator = '陈海媚';
+                this.voucher.summary = '车辆拆机设备及服务退费';
+                this.voucher.cfItems = [
+                    { refNo: `XT-000-${dateStr}-0001`, date: dateStr, total: 350, paid: 0, unpaid: 350, currentPay: 350 }
                 ];
             }
         },
@@ -279,27 +324,45 @@ const app = createApp({
         fillVoucherFromVehicle(v) {
             this.voucher.customerName = v.org_name || '个人客户';
             this.voucher.salesman = v.manager || '封柏';
-            this.voucher.summary = v.plate_no ? `${v.plate_no}${v.remark ? ' (' + v.remark + ')' : ''}` : '';
             this.voucher.orderDate = new Date().toISOString().slice(0, 10);
             
-            const devName = v.device_name || '车载北斗终端';
-            const devPrice = v.device_receivable > 0 ? v.device_receivable : 290;
-            
-            this.voucher.items = [
-                { name: '车载终端', spec: devName, unit: '台', count: 1, price: devPrice, amount: devPrice, taxRate: '0%', taxAmount: 0 },
-                { name: '平台服务费', spec: '北斗平台服务', unit: '年', count: 1, price: v.service_receivable || 0, amount: v.service_receivable || 0, taxRate: '0%', taxAmount: 0 }
-            ];
+            if (this.voucher.type === 'XS') {
+                // 销售收款单快速生成
+                const totalAmount = v.total_receivable || 600;
+                const paidAmount = v.total_received || totalAmount;
+                this.voucher.summary = `收到${v.manager || ''}交来${v.org_name || ''}${v.plate_no || ''}服务费及款项`;
+                this.voucher.payAccount = '银行存款-天宏工行';
+                this.voucher.payMethod = '银行存款';
+                this.voucher.cfItems = [
+                    { 
+                        refNo: `XK-000-${this.voucher.orderDate}-0001`, 
+                        date: this.voucher.orderDate, 
+                        total: totalAmount, 
+                        paid: 0, 
+                        unpaid: totalAmount, 
+                        currentPay: paidAmount 
+                    }
+                ];
+            } else {
+                this.voucher.summary = v.plate_no ? `${v.plate_no}${v.remark ? ' (' + v.remark + ')' : ''}` : '';
+                const devName = v.device_name || '车载北斗终端';
+                const devPrice = v.device_receivable > 0 ? v.device_receivable : 290;
+                this.voucher.items = [
+                    { name: '车载终端', spec: devName, unit: '台', count: 1, price: devPrice, amount: devPrice, taxRate: '0%', taxAmount: 0 },
+                    { name: '平台服务费', spec: '北斗平台服务', unit: '年', count: 1, price: v.service_receivable || 0, amount: v.service_receivable || 0, taxRate: '0%', taxAmount: 0 }
+                ];
+            }
             this.voucherSearchResults = [];
             this.voucherSearchKw = '';
         },
         createVoucherForVehicle(v) {
             this.activeTab = 'voucher_center';
-            this.selectVoucherTemplate('XK');
+            this.selectVoucherTemplate('XS');
             this.fillVoucherFromVehicle(v);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         },
         addVoucherItem() {
-            if (this.voucher.type === 'CF') {
+            if (this.voucher.type === 'CF' || this.voucher.type === 'XS' || this.voucher.type === 'XF') {
                 this.voucher.cfItems.push({ refNo: '', date: this.voucher.orderDate, total: 0, paid: 0, unpaid: 0, currentPay: 0 });
             } else {
                 this.voucher.items.push({ name: '车载终端', spec: '首航 SH-GDF', unit: '台', count: 1, price: 0, amount: 0, taxRate: '0%', taxAmount: 0 });

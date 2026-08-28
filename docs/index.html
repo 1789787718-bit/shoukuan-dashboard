@@ -257,7 +257,7 @@
                             <h3 class="font-bold text-base text-slate-900 dark:text-white flex items-center">
                                 <i class="fas fa-file-invoice text-blue-500 mr-2"></i> 财务单据开具工作台
                             </h3>
-                            <p class="text-xs text-slate-500 mt-0.5">选择单据模板，从车辆财务档案快速导入或手动录入，支持 1:1 格式打印</p>
+                            <p class="text-xs text-slate-500 mt-0.5">选择单据模板（7大标准格式），从车辆财务档案快速导入或手动录入，支持 1:1 格式打印</p>
                         </div>
 
                         <!-- 打印按钮 -->
@@ -269,21 +269,21 @@
                         </div>
                     </div>
 
-                    <!-- 5大模板选择器 -->
-                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 pt-2 border-t border-slate-100 dark:border-darkborder">
+                    <!-- 7大模板选择器 -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 pt-2 border-t border-slate-100 dark:border-darkborder">
                         <button 
                             v-for="tpl in voucherTemplates" 
                             :key="tpl.type"
                             @click="selectVoucherTemplate(tpl.type)"
                             :class="[
-                                'p-3 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center space-y-1.5 transition',
+                                'p-2.5 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center space-y-1 transition',
                                 voucher.type === tpl.type 
                                     ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/40 dark:border-blue-400 dark:text-blue-200 shadow-sm ring-2 ring-blue-500/20' 
                                     : 'border-slate-200 dark:border-darkborder text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                             ]">
                             <i :class="[tpl.icon, 'text-base', voucher.type === tpl.type ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400']"></i>
                             <span>{{ tpl.name }}</span>
-                            <span class="text-[10px] text-slate-400 font-normal">单号前缀: {{ tpl.prefix }}</span>
+                            <span class="text-[10px] text-slate-400 font-normal">单号: {{ tpl.prefix }}</span>
                         </button>
                     </div>
 
@@ -299,7 +299,7 @@
                                 type="text" 
                                 v-model="voucherSearchKw" 
                                 @input="searchVehicleForVoucher"
-                                placeholder="输入车牌号或客户单位名称（例如：粤G 或 培训公司）..." 
+                                placeholder="输入车牌号或客户单位名称（例如：粤G 或 润鑫泰）..." 
                                 class="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
                             
                             <!-- 搜索下拉结果 -->
@@ -313,7 +313,7 @@
                                         <strong class="text-blue-600 dark:text-blue-400 mr-2">{{ v.plate_no }}</strong>
                                         <span class="text-slate-700 dark:text-slate-300">{{ v.org_name }}</span>
                                     </div>
-                                    <span class="text-slate-400 text-[11px]">负责人: {{ v.manager }} · 设备: {{ v.device_name || '无' }}</span>
+                                    <span class="text-slate-400 text-[11px]">负责人: {{ v.manager }} · 实收: ¥{{ v.total_received }}</span>
                                 </div>
                             </div>
                         </div>
@@ -344,12 +344,20 @@
                                     <label class="block text-slate-500 mb-1">开单人</label>
                                     <input type="text" v-model="voucher.operator" class="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800">
                                 </div>
-                                <div class="sm:col-span-2">
-                                    <label class="block text-slate-500 mb-1">对方单位名称 (购货/销货/供应商)</label>
-                                    <input type="text" v-model="voucher.customerName" class="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800">
+                                <div>
+                                    <label class="block text-slate-500 mb-1">收款/付款帐户</label>
+                                    <input type="text" v-model="voucher.payAccount" class="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800">
+                                </div>
+                                <div>
+                                    <label class="block text-slate-500 mb-1">收款/付款方式</label>
+                                    <input type="text" v-model="voucher.payMethod" class="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800">
                                 </div>
                                 <div class="sm:col-span-2">
-                                    <label class="block text-slate-500 mb-1">摘要说明 (如车牌列表)</label>
+                                    <label class="block text-slate-500 mb-1">客户 / 单位名称</label>
+                                    <input type="text" v-model="voucher.customerName" class="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800">
+                                </div>
+                                <div class="sm:col-span-4">
+                                    <label class="block text-slate-500 mb-1">摘要说明 (如：收到车牌费用说明)</label>
                                     <input type="text" v-model="voucher.summary" class="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800">
                                 </div>
                             </div>
@@ -357,13 +365,13 @@
                             <!-- 明细项目表格编辑 -->
                             <div class="mt-4 space-y-2">
                                 <div class="flex items-center justify-between">
-                                    <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">单据明细货品列表</span>
+                                    <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">单据明细项目列表</span>
                                     <button @click="addVoucherItem" class="px-2.5 py-1 rounded bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300 text-xs font-medium hover:bg-blue-100">
                                         <i class="fas fa-plus mr-1"></i> 添加一行明细
                                     </button>
                                 </div>
                                 
-                                <div v-if="voucher.type !== 'CF'" class="space-y-1.5">
+                                <div v-if="voucher.type !== 'CF' && voucher.type !== 'XS'" class="space-y-1.5">
                                     <div v-for="(item, idx) in voucher.items" :key="idx" class="flex items-center space-x-2 text-xs">
                                         <input type="text" v-model="item.name" placeholder="货品名称" class="w-1/4 px-2 py-1 rounded border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800">
                                         <input type="text" v-model="item.spec" placeholder="规格型号" class="w-1/4 px-2 py-1 rounded border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800">
@@ -382,8 +390,8 @@
                                         <input type="text" v-model="item.refNo" placeholder="引用单号" class="w-1/3 px-2 py-1 rounded border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800">
                                         <input type="date" v-model="item.date" class="w-28 px-2 py-1 rounded border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800">
                                         <input type="number" v-model.number="item.total" placeholder="总金额" class="w-24 px-2 py-1 rounded border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800 text-right">
-                                        <input type="number" v-model.number="item.unpaid" placeholder="未付金额" class="w-24 px-2 py-1 rounded border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800 text-right">
-                                        <input type="number" v-model.number="item.currentPay" placeholder="本次付款" class="w-24 px-2 py-1 rounded border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800 text-right font-semibold">
+                                        <input type="number" v-model.number="item.unpaid" placeholder="未结金额" class="w-24 px-2 py-1 rounded border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800 text-right">
+                                        <input type="number" v-model.number="item.currentPay" placeholder="本次金额" class="w-24 px-2 py-1 rounded border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800 text-right font-semibold">
                                         <button @click="removeCfItem(idx)" class="text-rose-500 hover:text-rose-700 px-1">
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
@@ -405,10 +413,10 @@
                         <div class="corner-br"></div>
 
                         <!-- 1. 销售出货单 (XK) -->
-                        <div v-if="voucher.type === 'XK'" class="space-y-3">
+                        <div v-if="voucher.type === 'XK'" class="space-y-2.5">
                             <div class="voucher-title">销 售 出 货 单</div>
                             
-                            <div class="flex justify-between text-xs pt-1">
+                            <div class="flex justify-between text-xs pt-1 pb-1">
                                 <div class="space-y-1">
                                     <div>开单日期：{{ voucher.orderDate }}</div>
                                     <div>送货地址：{{ voucher.deliveryAddress || '' }}</div>
@@ -424,20 +432,20 @@
 
                             <table class="voucher-table">
                                 <thead>
-                                    <tr>
-                                        <th rowspan="2" style="width: 14%;">购货<br>单位</th>
+                                    <tr class="row-header">
+                                        <th rowspan="2" style="width: 13%;">购货<br>单位</th>
                                         <th style="width: 12%;">名    称</th>
                                         <th colspan="3" style="text-align: left;">{{ voucher.customerName }}</th>
                                         <th style="width: 16%;">税务登记号</th>
                                         <th colspan="2" style="text-align: left;">{{ voucher.customerTaxNo || '' }}</th>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-header">
                                         <th>地址、电话</th>
                                         <th colspan="3" style="text-align: left;">{{ voucher.customerAddrPhone || '' }}</th>
                                         <th>开户银行及帐号</th>
                                         <th colspan="2" style="text-align: left;">{{ voucher.customerBank || '' }}</th>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-header">
                                         <th style="width: 22%;">货品名称</th>
                                         <th style="width: 18%;">规格</th>
                                         <th style="width: 8%;">单位</th>
@@ -449,7 +457,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="(it, i) in displayItems" :key="i">
+                                    <tr v-for="(it, i) in displayItems" :key="i" class="row-data">
                                         <td>{{ it.name || '' }}</td>
                                         <td>{{ it.spec || '' }}</td>
                                         <td class="text-center">{{ it.unit || '' }}</td>
@@ -459,7 +467,7 @@
                                         <td class="text-center">{{ it.taxRate || (it.name ? '0%' : '') }}</td>
                                         <td class="text-right">{{ it.taxAmount !== undefined && it.taxAmount !== '' ? Number(it.taxAmount).toFixed(2) : (it.name ? '0.00' : '') }}</td>
                                     </tr>
-                                    <tr style="font-weight: bold;">
+                                    <tr class="row-summary font-bold">
                                         <td colspan="2" class="text-center">合    计</td>
                                         <td></td>
                                         <td class="text-right">{{ totalVoucherCount.toFixed(2) }}</td>
@@ -468,23 +476,23 @@
                                         <td></td>
                                         <td class="text-right">0.00</td>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-summary">
                                         <td colspan="2" class="text-center font-bold">价 税 合 计</td>
                                         <td colspan="4" class="font-bold">{{ chineseUpperTotal }}</td>
                                         <td colspan="2" class="text-right font-bold">{{ formatMoney(totalVoucherAmount) }}</td>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-summary">
                                         <td colspan="2" class="text-center font-bold">摘    要</td>
                                         <td colspan="6">{{ voucher.summary || '' }}</td>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-header">
                                         <th rowspan="2">销货<br>单位</th>
                                         <th>名    称</th>
                                         <th colspan="3" style="text-align: left;">{{ voucher.companyName }}</th>
                                         <th>税务登记号</th>
                                         <th colspan="2" style="text-align: left;">{{ voucher.companyTaxNo || '' }}</th>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-header">
                                         <th>地址、电话</th>
                                         <th colspan="3" style="text-align: left;">{{ voucher.companyAddrPhone || '' }}</th>
                                         <th>开户银行及帐号</th>
@@ -501,11 +509,75 @@
                             </div>
                         </div>
 
-                        <!-- 2. 采购付款单 (CF) -->
-                        <div v-if="voucher.type === 'CF'" class="space-y-3">
+                        <!-- 2. 销售收款单 (XS) - 1:1 还原实拍图1与图2 -->
+                        <div v-if="voucher.type === 'XS'" class="space-y-2.5">
+                            <div class="voucher-title">销 售 收 款 单</div>
+                            
+                            <div class="grid grid-cols-3 gap-y-1.5 text-xs pt-1 pb-1">
+                                <div>客    户：{{ voucher.customerName || '湛江润鑫泰运输有限公司' }}</div>
+                                <div>收款类型：{{ voucher.payType || '应收款' }}</div>
+                                <div>开单日期：{{ voucher.orderDate }}</div>
+                                
+                                <div>收款帐户：{{ voucher.payAccount || '银行存款-天宏工行' }}</div>
+                                <div>收款方式：{{ voucher.payMethod || '银行存款' }}</div>
+                                <div>单    号：<strong>{{ voucher.orderNo }}</strong></div>
+                                
+                                <div>应收金额：{{ formatMoney(totalXsPay) }}</div>
+                                <div>折 扣 率：{{ voucher.discountRate || 100 }}</div>
+                                <div>实收金额：{{ formatMoney(totalXsPay) }}</div>
+
+                                <div>折扣金额：0.00</div>
+                                <div>预收金额：0.00</div>
+                                <div>票    号：</div>
+                            </div>
+
+                            <table class="voucher-table">
+                                <thead>
+                                    <tr class="row-header">
+                                        <th style="width: 28%;">引用单号</th>
+                                        <th style="width: 16%;">单据日期</th>
+                                        <th style="width: 14%;">总金额</th>
+                                        <th style="width: 14%;">已收金额</th>
+                                        <th style="width: 14%;">未收金额</th>
+                                        <th style="width: 14%;">本次收款</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(it, i) in displayXsItems" :key="i" class="row-data">
+                                        <td>{{ it.refNo || '' }}</td>
+                                        <td class="text-center">{{ it.date || '' }}</td>
+                                        <td class="text-right">{{ it.total ? formatMoney(it.total) : '' }}</td>
+                                        <td class="text-right">{{ it.paid !== undefined && it.paid !== '' ? formatMoney(it.paid) : '' }}</td>
+                                        <td class="text-right">{{ it.unpaid ? formatMoney(it.unpaid) : '' }}</td>
+                                        <td class="text-right font-medium">{{ it.currentPay ? formatMoney(it.currentPay) : '' }}</td>
+                                    </tr>
+                                    <tr class="row-summary font-bold">
+                                        <td colspan="2" class="text-center">合    计</td>
+                                        <td class="text-right">{{ formatMoney(totalXsAmount) }}</td>
+                                        <td class="text-right">0.00</td>
+                                        <td class="text-right">{{ formatMoney(totalXsAmount) }}</td>
+                                        <td class="text-right">{{ formatMoney(totalXsPay) }}</td>
+                                    </tr>
+                                    <tr class="row-summary">
+                                        <td class="text-center font-bold">摘    要</td>
+                                        <td colspan="5">{{ voucher.summary || '收到封柏交来润鑫泰粤GM3900购买2个摄像头费用' }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <div class="flex justify-between text-xs pt-3 font-semibold">
+                                <div>收款单位(章)：</div>
+                                <div>收款人：{{ voucher.reviewer || '' }}</div>
+                                <div>业务员：{{ voucher.salesman || '' }}</div>
+                                <div>开单人：{{ voucher.operator || '系统管理员' }}</div>
+                            </div>
+                        </div>
+
+                        <!-- 3. 采购付款单 (CF) -->
+                        <div v-if="voucher.type === 'CF'" class="space-y-2.5">
                             <div class="voucher-title">采 购 付 款 单</div>
                             
-                            <div class="grid grid-cols-3 gap-y-1 text-xs pt-1">
+                            <div class="grid grid-cols-3 gap-y-1.5 text-xs pt-1 pb-1">
                                 <div>供 应 商：{{ voucher.customerName || '深圳市首航电子有限公司' }}</div>
                                 <div>付款类型：{{ voucher.payType || '应付帐款' }}</div>
                                 <div>开单日期：{{ voucher.orderDate }}</div>
@@ -525,7 +597,7 @@
 
                             <table class="voucher-table">
                                 <thead>
-                                    <tr>
+                                    <tr class="row-header">
                                         <th style="width: 28%;">引用单号</th>
                                         <th style="width: 16%;">单据日期</th>
                                         <th style="width: 14%;">总金额</th>
@@ -535,7 +607,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="(it, i) in displayCfItems" :key="i">
+                                    <tr v-for="(it, i) in displayCfItems" :key="i" class="row-data">
                                         <td>{{ it.refNo || '' }}</td>
                                         <td class="text-center">{{ it.date || '' }}</td>
                                         <td class="text-right">{{ it.total ? formatMoney(it.total) : '' }}</td>
@@ -543,16 +615,16 @@
                                         <td class="text-right">{{ it.unpaid ? formatMoney(it.unpaid) : '' }}</td>
                                         <td class="text-right font-medium">{{ it.currentPay ? formatMoney(it.currentPay) : '' }}</td>
                                     </tr>
-                                    <tr style="font-weight: bold;">
+                                    <tr class="row-summary font-bold">
                                         <td colspan="2" class="text-center">合    计</td>
                                         <td class="text-right">{{ formatMoney(totalCfAmount) }}</td>
                                         <td class="text-right">0.00</td>
                                         <td class="text-right">{{ formatMoney(totalCfAmount) }}</td>
                                         <td class="text-right">{{ formatMoney(totalCfPay) }}</td>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-summary">
                                         <td class="text-center font-bold">摘    要</td>
-                                        <td colspan="5">{{ voucher.summary || '支付网约车设备--车载终端款' }}</td>
+                                        <td colspan="5">{{ voucher.summary || '支付100台网约车设备--车载终端款' }}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -565,11 +637,11 @@
                             </div>
                         </div>
 
-                        <!-- 3. 采购收货单 (CS) -->
-                        <div v-if="voucher.type === 'CS'" class="space-y-3">
+                        <!-- 4. 采购收货单 (CS) -->
+                        <div v-if="voucher.type === 'CS'" class="space-y-2.5">
                             <div class="voucher-title">采 购 收 货 单</div>
                             
-                            <div class="flex justify-between text-xs pt-1">
+                            <div class="flex justify-between text-xs pt-1 pb-1">
                                 <div>开单日期：{{ voucher.orderDate }}</div>
                                 <div>进 货 仓：{{ voucher.warehouse || '湛江总仓' }}</div>
                                 <div>单    号：<strong>{{ voucher.orderNo }}</strong></div>
@@ -578,20 +650,20 @@
 
                             <table class="voucher-table">
                                 <thead>
-                                    <tr>
-                                        <th rowspan="2" style="width: 14%;">购货<br>单位</th>
+                                    <tr class="row-header">
+                                        <th rowspan="2" style="width: 13%;">购货<br>单位</th>
                                         <th style="width: 12%;">名    称</th>
                                         <th colspan="3" style="text-align: left;">{{ voucher.companyName }}</th>
                                         <th style="width: 16%;">税务登记号</th>
                                         <th colspan="2" style="text-align: left;">{{ voucher.companyTaxNo || '' }}</th>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-header">
                                         <th>地址、电话</th>
                                         <th colspan="3" style="text-align: left;">{{ voucher.companyAddrPhone || '' }}</th>
                                         <th>开户银行及帐号</th>
                                         <th colspan="2" style="text-align: left;">{{ voucher.companyBank || '' }}</th>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-header">
                                         <th style="width: 22%;">货品名称</th>
                                         <th style="width: 18%;">规格</th>
                                         <th style="width: 8%;">单位</th>
@@ -603,7 +675,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="(it, i) in displayItems" :key="i">
+                                    <tr v-for="(it, i) in displayItems" :key="i" class="row-data">
                                         <td>{{ it.name || '' }}</td>
                                         <td>{{ it.spec || '' }}</td>
                                         <td class="text-center">{{ it.unit || '' }}</td>
@@ -613,7 +685,7 @@
                                         <td class="text-center">{{ it.taxRate || (it.name ? '0%' : '') }}</td>
                                         <td class="text-right">{{ it.taxAmount !== undefined && it.taxAmount !== '' ? Number(it.taxAmount).toFixed(2) : (it.name ? '0.00' : '') }}</td>
                                     </tr>
-                                    <tr style="font-weight: bold;">
+                                    <tr class="row-summary font-bold">
                                         <td colspan="2" class="text-center">合    计</td>
                                         <td></td>
                                         <td class="text-right">{{ totalVoucherCount.toFixed(0) }}</td>
@@ -622,23 +694,23 @@
                                         <td></td>
                                         <td class="text-right">0.00</td>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-summary">
                                         <td colspan="2" class="text-center font-bold">价 税 合 计</td>
                                         <td colspan="4" class="font-bold">{{ chineseUpperTotal }}</td>
                                         <td colspan="2" class="text-right font-bold">{{ formatMoney(totalVoucherAmount) }}</td>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-summary">
                                         <td colspan="2" class="text-center font-bold">摘    要</td>
                                         <td colspan="6">{{ voucher.summary || '' }}</td>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-header">
                                         <th rowspan="2">销货<br>单位</th>
                                         <th>名    称</th>
                                         <th colspan="3" style="text-align: left;">{{ voucher.customerName || '北京尚阅科技（集团）有限公司' }}</th>
                                         <th>税务登记号</th>
                                         <th colspan="2" style="text-align: left;"></th>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-header">
                                         <th>地址、电话</th>
                                         <th colspan="3" style="text-align: left;"></th>
                                         <th>开户银行及帐号</th>
@@ -655,11 +727,11 @@
                             </div>
                         </div>
 
-                        <!-- 4. 采购退货单 (CT) -->
-                        <div v-if="voucher.type === 'CT'" class="space-y-3">
+                        <!-- 5. 采购退货单 (CT) -->
+                        <div v-if="voucher.type === 'CT'" class="space-y-2.5">
                             <div class="voucher-title">采 购 退 货 单</div>
                             
-                            <div class="grid grid-cols-3 gap-y-1 text-xs pt-1">
+                            <div class="grid grid-cols-3 gap-y-1.5 text-xs pt-1 pb-1">
                                 <div>退款类型：冲抵往来</div>
                                 <div>退 货 仓：{{ voucher.warehouse || '湛江总仓' }}</div>
                                 <div>开单日期：{{ voucher.orderDate }}</div>
@@ -675,20 +747,20 @@
 
                             <table class="voucher-table">
                                 <thead>
-                                    <tr>
-                                        <th rowspan="2" style="width: 14%;">购货<br>单位</th>
+                                    <tr class="row-header">
+                                        <th rowspan="2" style="width: 13%;">购货<br>单位</th>
                                         <th style="width: 12%;">名    称</th>
                                         <th colspan="3" style="text-align: left;">{{ voucher.companyName }}</th>
                                         <th style="width: 16%;">税务登记号</th>
                                         <th colspan="2" style="text-align: left;"></th>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-header">
                                         <th>地址、电话</th>
                                         <th colspan="3" style="text-align: left;"></th>
                                         <th>开户银行及帐号</th>
                                         <th colspan="2" style="text-align: left;"></th>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-header">
                                         <th style="width: 22%;">货品名称</th>
                                         <th style="width: 18%;">规格</th>
                                         <th style="width: 8%;">单位</th>
@@ -700,7 +772,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="(it, i) in displayItems" :key="i">
+                                    <tr v-for="(it, i) in displayItems" :key="i" class="row-data">
                                         <td>{{ it.name || '' }}</td>
                                         <td>{{ it.spec || '' }}</td>
                                         <td class="text-center">{{ it.unit || '' }}</td>
@@ -710,7 +782,7 @@
                                         <td class="text-center">{{ it.taxRate || (it.name ? '0%' : '') }}</td>
                                         <td class="text-right">{{ it.taxAmount !== undefined && it.taxAmount !== '' ? Number(it.taxAmount).toFixed(2) : (it.name ? '0.00' : '') }}</td>
                                     </tr>
-                                    <tr style="font-weight: bold;">
+                                    <tr class="row-summary font-bold">
                                         <td colspan="2" class="text-center">合    计</td>
                                         <td></td>
                                         <td class="text-right">{{ totalVoucherCount.toFixed(0) }}</td>
@@ -719,23 +791,23 @@
                                         <td></td>
                                         <td class="text-right">0.00</td>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-summary">
                                         <td colspan="2" class="text-center font-bold">价 税 合 计</td>
                                         <td colspan="4" class="font-bold">{{ chineseUpperTotal }}</td>
                                         <td colspan="2" class="text-right font-bold">{{ formatMoney(totalVoucherAmount) }}</td>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-summary">
                                         <td colspan="2" class="text-center font-bold">摘    要</td>
                                         <td colspan="6">{{ voucher.summary || '' }}</td>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-header">
                                         <th rowspan="2">销货<br>单位</th>
                                         <th>名    称</th>
                                         <th colspan="3" style="text-align: left;">{{ voucher.customerName || '深圳市博实结科技股份有限公司' }}</th>
                                         <th>税务登记号</th>
                                         <th colspan="2" style="text-align: left;"></th>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-header">
                                         <th>地址、电话</th>
                                         <th colspan="3" style="text-align: left;"></th>
                                         <th>开户银行及帐号</th>
@@ -752,11 +824,11 @@
                             </div>
                         </div>
 
-                        <!-- 5. 销售退货单 (XT) -->
-                        <div v-if="voucher.type === 'XT'" class="space-y-3">
+                        <!-- 6. 销售退货单 (XT) -->
+                        <div v-if="voucher.type === 'XT'" class="space-y-2.5">
                             <div class="voucher-title">销 售 退 货 单</div>
                             
-                            <div class="grid grid-cols-3 gap-y-1 text-xs pt-1">
+                            <div class="grid grid-cols-3 gap-y-1.5 text-xs pt-1 pb-1">
                                 <div>退货类型：冲抵往来</div>
                                 <div>退 货 仓：{{ voucher.warehouse || '湛江总仓' }}</div>
                                 <div>开单日期：{{ voucher.orderDate }}</div>
@@ -772,20 +844,20 @@
 
                             <table class="voucher-table">
                                 <thead>
-                                    <tr>
-                                        <th rowspan="2" style="width: 14%;">退货<br>单位</th>
+                                    <tr class="row-header">
+                                        <th rowspan="2" style="width: 13%;">退货<br>单位</th>
                                         <th style="width: 12%;">名    称</th>
                                         <th colspan="3" style="text-align: left;">{{ voucher.customerName || '湛江智达汽车有限公司' }}</th>
                                         <th style="width: 16%;">税务登记号</th>
                                         <th colspan="2" style="text-align: left;"></th>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-header">
                                         <th>地址、电话</th>
                                         <th colspan="3" style="text-align: left;"></th>
                                         <th>开户银行及帐号</th>
                                         <th colspan="2" style="text-align: left;"></th>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-header">
                                         <th style="width: 22%;">货品名称</th>
                                         <th style="width: 18%;">规格</th>
                                         <th style="width: 8%;">单位</th>
@@ -797,7 +869,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="(it, i) in displayItems" :key="i">
+                                    <tr v-for="(it, i) in displayItems" :key="i" class="row-data">
                                         <td>{{ it.name || '' }}</td>
                                         <td>{{ it.spec || '' }}</td>
                                         <td class="text-center">{{ it.unit || '' }}</td>
@@ -807,7 +879,7 @@
                                         <td class="text-center">{{ it.taxRate || (it.name ? '0%' : '') }}</td>
                                         <td class="text-right">{{ it.taxAmount !== undefined && it.taxAmount !== '' ? Number(it.taxAmount).toFixed(2) : (it.name ? '0.00' : '') }}</td>
                                     </tr>
-                                    <tr style="font-weight: bold;">
+                                    <tr class="row-summary font-bold">
                                         <td colspan="2" class="text-center">合    计</td>
                                         <td></td>
                                         <td class="text-right">{{ totalVoucherCount.toFixed(0) }}</td>
@@ -816,23 +888,23 @@
                                         <td></td>
                                         <td class="text-right">0.00</td>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-summary">
                                         <td colspan="2" class="text-center font-bold">价 税 合 计</td>
                                         <td colspan="4" class="font-bold">{{ chineseUpperTotal }}</td>
                                         <td colspan="2" class="text-right font-bold">{{ formatMoney(totalVoucherAmount) }}</td>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-summary">
                                         <td colspan="2" class="text-center font-bold">摘    要</td>
                                         <td colspan="6">{{ voucher.summary || '粤GD96926（拆机）' }}</td>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-header">
                                         <th rowspan="2">销货<br>单位</th>
                                         <th>名    称</th>
                                         <th colspan="3" style="text-align: left;">{{ voucher.companyName }}</th>
                                         <th>税务登记号</th>
                                         <th colspan="2" style="text-align: left;"></th>
                                     </tr>
-                                    <tr>
+                                    <tr class="row-header">
                                         <th>地址、电话</th>
                                         <th colspan="3" style="text-align: left;"></th>
                                         <th>开户银行及帐号</th>
@@ -844,6 +916,66 @@
                             <div class="flex justify-between text-xs pt-3 font-semibold">
                                 <div>审核人：{{ voucher.reviewer || '' }}</div>
                                 <div>仓    管：{{ voucher.warehouseKeeper || '' }}</div>
+                                <div>业务员：{{ voucher.salesman || '封柏' }}</div>
+                                <div>开单人：{{ voucher.operator || '陈海媚' }}</div>
+                            </div>
+                        </div>
+
+                        <!-- 7. 销售退款单 (XF) -->
+                        <div v-if="voucher.type === 'XF'" class="space-y-2.5">
+                            <div class="voucher-title">销 售 退 款 单</div>
+                            
+                            <div class="grid grid-cols-3 gap-y-1.5 text-xs pt-1 pb-1">
+                                <div>退款单位：{{ voucher.customerName || '湛江智达汽车有限公司' }}</div>
+                                <div>退款类型：冲抵往来</div>
+                                <div>开单日期：{{ voucher.orderDate }}</div>
+
+                                <div>退款帐户：{{ voucher.payAccount || '银行存款-天宏工行' }}</div>
+                                <div>退款方式：{{ voucher.payMethod || '银行存款' }}</div>
+                                <div>单    号：<strong>{{ voucher.orderNo }}</strong></div>
+
+                                <div>应退金额：{{ formatMoney(totalCfPay) }}</div>
+                                <div>折 扣 率：100</div>
+                                <div>实退金额：{{ formatMoney(totalCfPay) }}</div>
+                            </div>
+
+                            <table class="voucher-table">
+                                <thead>
+                                    <tr class="row-header">
+                                        <th style="width: 28%;">引用单号</th>
+                                        <th style="width: 16%;">单据日期</th>
+                                        <th style="width: 14%;">总金额</th>
+                                        <th style="width: 14%;">已退金额</th>
+                                        <th style="width: 14%;">未退金额</th>
+                                        <th style="width: 14%;">本次退款</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(it, i) in displayCfItems" :key="i" class="row-data">
+                                        <td>{{ it.refNo || '' }}</td>
+                                        <td class="text-center">{{ it.date || '' }}</td>
+                                        <td class="text-right">{{ it.total ? formatMoney(it.total) : '' }}</td>
+                                        <td class="text-right">{{ it.paid !== undefined && it.paid !== '' ? formatMoney(it.paid) : '' }}</td>
+                                        <td class="text-right">{{ it.unpaid ? formatMoney(it.unpaid) : '' }}</td>
+                                        <td class="text-right font-medium">{{ it.currentPay ? formatMoney(it.currentPay) : '' }}</td>
+                                    </tr>
+                                    <tr class="row-summary font-bold">
+                                        <td colspan="2" class="text-center">合    计</td>
+                                        <td class="text-right">{{ formatMoney(totalCfAmount) }}</td>
+                                        <td class="text-right">0.00</td>
+                                        <td class="text-right">{{ formatMoney(totalCfAmount) }}</td>
+                                        <td class="text-right">{{ formatMoney(totalCfPay) }}</td>
+                                    </tr>
+                                    <tr class="row-summary">
+                                        <td class="text-center font-bold">摘    要</td>
+                                        <td colspan="5">{{ voucher.summary || '车辆拆机设备及服务退费' }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <div class="flex justify-between text-xs pt-3 font-semibold">
+                                <div>客户签名：</div>
+                                <div>审核人：{{ voucher.reviewer || '' }}</div>
                                 <div>业务员：{{ voucher.salesman || '封柏' }}</div>
                                 <div>开单人：{{ voucher.operator || '陈海媚' }}</div>
                             </div>
@@ -1178,7 +1310,7 @@
                                             <button @click="openVehicleDrawer(r)" class="px-2 py-1 rounded text-xs bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-300 font-medium transition">
                                                 档案
                                             </button>
-                                            <button @click="createVoucherForVehicle(r)" title="开具单据" class="px-2 py-1 rounded text-xs bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 font-medium transition">
+                                            <button @click="createVoucherForVehicle(r)" title="开具收款单" class="px-2 py-1 rounded text-xs bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 font-medium transition">
                                                 开单
                                             </button>
                                         </div>
