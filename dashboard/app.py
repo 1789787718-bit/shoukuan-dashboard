@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 天宏平台车辆收款可视化平台 Web 后端服务
 """
@@ -228,6 +228,14 @@ def export_csv(
 
 # 挂载静态文件目录
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+@app.get("/styles.css")
+def serve_css():
+    return FileResponse(os.path.join(STATIC_DIR, "styles.css"))
+
+@app.get("/app.js")
+def serve_js():
+    return FileResponse(os.path.join(STATIC_DIR, "app.js"))
 
 @app.get("/")
 def serve_index():
