@@ -45,3 +45,120 @@
 [v-cloak] {
     display: none !important;
 }
+
+/* ==========================================================================
+   Voucher Paper & Print Styling (1:1 Enterprise Standard Alignment)
+   ========================================================================== */
+.voucher-paper {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: 'SimSun', 'Songti SC', 'STSong', 'Times New Roman', serif;
+    position: relative;
+    border: 1px solid #94a3b8;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box;
+}
+
+/* Corner Crop / Registration Marks (┌ ┐ └ ┘) */
+.voucher-paper .corner-tl {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 14px;
+    height: 14px;
+    border-top: 2px solid #000;
+    border-left: 2px solid #000;
+}
+.voucher-paper .corner-tr {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 14px;
+    height: 14px;
+    border-top: 2px solid #000;
+    border-right: 2px solid #000;
+}
+.voucher-paper .corner-bl {
+    position: absolute;
+    bottom: 6px;
+    left: 6px;
+    width: 14px;
+    height: 14px;
+    border-bottom: 2px solid #000;
+    border-left: 2px solid #000;
+}
+.voucher-paper .corner-br {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    width: 14px;
+    height: 14px;
+    border-bottom: 2px solid #000;
+    border-right: 2px solid #000;
+}
+
+/* Voucher Title */
+.voucher-title {
+    font-family: 'SimSun', 'STSong', 'KaiTi', serif;
+    font-size: 26px;
+    font-weight: bold;
+    letter-spacing: 12px;
+    text-align: center;
+    color: #0f172a;
+    padding: 10px 0 14px;
+}
+
+/* Crisp 1px black table borders for financial receipts */
+.voucher-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1.5px solid #000;
+    font-size: 13px;
+    line-height: 1.3;
+}
+
+.voucher-table th, 
+.voucher-table td {
+    border: 1px solid #000;
+    padding: 4px 6px;
+    color: #000;
+}
+
+.voucher-table th {
+    font-weight: bold;
+    text-align: center;
+    background-color: #f8fafc;
+}
+
+/* Print Media Query */
+@media print {
+    @page {
+        size: auto;
+        margin: 8mm 10mm;
+    }
+
+    body * {
+        visibility: hidden;
+    }
+
+    .no-print, header, footer, .sidebar, button, input, select {
+        display: none !important;
+    }
+
+    #printableVoucher, #printableVoucher * {
+        visibility: visible;
+    }
+
+    #printableVoucher {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 10px !important;
+        border: none !important;
+        box-shadow: none !important;
+        background: #fff !important;
+    }
+}

@@ -14,11 +14,56 @@ const app = createApp({
             activeTab: 'overview',
             reloading: false,
             tabs: [
-                { id: 'overview', name: '业务全景看板', icon: 'fas fa-chart-pie' },
-                { id: 'managers', name: '负责人业绩', icon: 'fas fa-user-tie' },
-                { id: 'risk', name: '欠款与风险监控', icon: 'fas fa-shield-alt' },
-                { id: 'explorer', name: '车辆明细检索与档案', icon: 'fas fa-search' }
+                { id: 'overview', name: '📊 业务全景看板', icon: 'fas fa-chart-pie' },
+                { id: 'voucher_center', name: '🧾 单据开具与打印', icon: 'fas fa-file-invoice' },
+                { id: 'managers', name: '👥 负责人业绩', icon: 'fas fa-user-tie' },
+                { id: 'risk', name: '⚠️ 欠款与风险监控', icon: 'fas fa-shield-alt' },
+                { id: 'explorer', name: '🔍 车辆明细与档案', icon: 'fas fa-search' }
             ],
+            // 5大单据模板
+            voucherTemplates: [
+                { type: 'XK', name: '销售出货单', prefix: 'XK', icon: 'fas fa-truck-loading' },
+                { type: 'CF', name: '采购付款单', prefix: 'CF', icon: 'fas fa-hand-holding-usd' },
+                { type: 'CS', name: '采购收货单', prefix: 'CS', icon: 'fas fa-boxes' },
+                { type: 'CT', name: '采购退货单', prefix: 'CT', icon: 'fas fa-undo-alt' },
+                { type: 'XT', name: '销售退货单', prefix: 'XT', icon: 'fas fa-exchange-alt' }
+            ],
+            voucherSearchKw: '',
+            voucherSearchResults: [],
+            voucher: {
+                type: 'XK',
+                orderNo: 'XK-000-2023-06-05-0001',
+                orderDate: '2023-06-05',
+                warehouse: '湛江总仓',
+                customerName: '徐闻县一顺机动车驾驶员培训有限公司',
+                customerTaxNo: '',
+                customerAddrPhone: '',
+                customerBank: '',
+                companyName: '广东北斗天宏信息技术有限公司',
+                companyTaxNo: '',
+                companyAddrPhone: '',
+                companyBank: '',
+                deliveryAddress: '',
+                paymentTerms: '',
+                payType: '应付帐款',
+                payMethod: '银行存款',
+                payAccount: '银行存款-天宏工行',
+                discountRate: 100,
+                summary: '粤G7198学、粤G7989学、粤G9866学、粤G3323学',
+                salesman: '刘美东',
+                reviewer: '',
+                warehouseKeeper: '',
+                operator: '陈海媚',
+                clientSign: '',
+                items: [
+                    { name: '车载终端', spec: '首航 SH-GDF', unit: '台', count: 3, price: 0, amount: 0, taxRate: '0%', taxAmount: 0 },
+                    { name: '移动物联网卡', spec: '1G', unit: '张', count: 4, price: 0, amount: 0, taxRate: '0%', taxAmount: 0 },
+                    { name: '移动物联网卡', spec: '100M', unit: '张', count: 4, price: 0, amount: 0, taxRate: '0%', taxAmount: 0 }
+                ],
+                cfItems: [
+                    { refNo: 'CS-000-2023-05-10-0001', date: '2023-05-10', total: 23000, paid: 0, unpaid: 23000, currentPay: 23000 }
+                ]
+            },
             overview: {
                 generated_at: '',
                 kpis: {},
@@ -51,6 +96,37 @@ const app = createApp({
             searchTimer: null,
             charts: {}
         };
+    },
+    computed: {
+        displayItems() {
+            const list = [...(this.voucher.items || [])];
+            while (list.length < 6) {
+                list.push({ name: '', spec: '', unit: '', count: '', price: '', amount: '', taxRate: '', taxAmount: '' });
+            }
+            return list;
+        },
+        displayCfItems() {
+            const list = [...(this.voucher.cfItems || [])];
+            while (list.length < 6) {
+                list.push({ refNo: '', date: '', total: '', paid: '', unpaid: '', currentPay: '' });
+            }
+            return list;
+        },
+        totalVoucherCount() {
+            return (this.voucher.items || []).reduce((sum, it) => sum + (Number(it.count) || 0), 0);
+        },
+        totalVoucherAmount() {
+            return (this.voucher.items || []).reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
+        },
+        chineseUpperTotal() {
+            return this.numberToChineseRMB(this.totalVoucherAmount);
+        },
+        totalCfAmount() {
+            return (this.voucher.cfItems || []).reduce((sum, it) => sum + (Number(it.total) || 0), 0);
+        },
+        totalCfPay() {
+            return (this.voucher.cfItems || []).reduce((sum, it) => sum + (Number(it.currentPay) || 0), 0);
+        }
     },
     mounted() {
         const savedTheme = localStorage.getItem('theme');
@@ -124,9 +200,160 @@ const app = createApp({
                 }, 50);
             });
         },
+        // ==========================================
+        // 单据开具与打印中心方法
+        // ==========================================
+        selectVoucherTemplate(type) {
+            this.voucher.type = type;
+            const now = new Date();
+            const dateStr = now.toISOString().slice(0, 10);
+            const rNum = String(Math.floor(Math.random() * 9000) + 1000);
+            this.voucher.orderDate = dateStr;
+            this.voucher.orderNo = `${type}-000-${dateStr}-${rNum}`;
+
+            if (type === 'XK') {
+                this.voucher.customerName = '徐闻县一顺机动车驾驶员培训有限公司';
+                this.voucher.salesman = '刘美东';
+                this.voucher.operator = '陈海媚';
+                this.voucher.summary = '粤G7198学、粤G7989学、粤G9866学、粤G3323学';
+                this.voucher.items = [
+                    { name: '车载终端', spec: '首航 SH-GDF', unit: '台', count: 3, price: 0, amount: 0, taxRate: '0%', taxAmount: 0 },
+                    { name: '移动物联网卡', spec: '1G', unit: '张', count: 4, price: 0, amount: 0, taxRate: '0%', taxAmount: 0 },
+                    { name: '移动物联网卡', spec: '100M', unit: '张', count: 4, price: 0, amount: 0, taxRate: '0%', taxAmount: 0 }
+                ];
+            } else if (type === 'CF') {
+                this.voucher.customerName = '深圳市首航电子有限公司';
+                this.voucher.payType = '应付帐款';
+                this.voucher.payMethod = '银行存款';
+                this.voucher.payAccount = '银行存款-天宏工行';
+                this.voucher.salesman = '封柏';
+                this.voucher.operator = '系统管理员';
+                this.voucher.summary = '支付100台网约车设备--车载终端款';
+                this.voucher.cfItems = [
+                    { refNo: `CS-000-${dateStr}-0001`, date: dateStr, total: 23000, paid: 0, unpaid: 23000, currentPay: 23000 }
+                ];
+            } else if (type === 'CS') {
+                this.voucher.customerName = '北京尚阅科技（集团）有限公司';
+                this.voucher.salesman = '封柏';
+                this.voucher.operator = '系统管理员';
+                this.voucher.summary = '采购330张物联网卡';
+                this.voucher.items = [
+                    { name: '移动物联网卡', spec: '1G', unit: '张', count: 50, price: 33, amount: 1650, taxRate: '0%', taxAmount: 0 },
+                    { name: '移动物联网卡', spec: '100M', unit: '张', count: 100, price: 8, amount: 800, taxRate: '0%', taxAmount: 0 },
+                    { name: '移动物联网卡', spec: '10G', unit: '张', count: 30, price: 81, amount: 2430, taxRate: '0%', taxAmount: 0 },
+                    { name: '移动物联网卡', spec: '100M', unit: '张', count: 150, price: 8, amount: 1200, taxRate: '0%', taxAmount: 0 }
+                ];
+            } else if (type === 'CT') {
+                this.voucher.customerName = '深圳市博实结科技股份有限公司';
+                this.voucher.salesman = '封柏';
+                this.voucher.operator = '系统管理员';
+                this.voucher.summary = '采购退货冲抵往来';
+                this.voucher.items = [
+                    { name: '车载终端', spec: 'BSJ-GH13', unit: '台', count: 12, price: 290, amount: 3480, taxRate: '0%', taxAmount: 0 },
+                    { name: '车载终端', spec: 'BSJ-GH13', unit: '台', count: 5, price: 290, amount: 1450, taxRate: '0%', taxAmount: 0 },
+                    { name: '车载终端', spec: 'BSJ-GH13', unit: '台', count: 10, price: 290, amount: 2900, taxRate: '0%', taxAmount: 0 },
+                    { name: '车载终端', spec: 'BSJ-GH13', unit: '台', count: 4, price: 290, amount: 1160, taxRate: '0%', taxAmount: 0 }
+                ];
+            } else if (type === 'XT') {
+                this.voucher.customerName = '湛江智达汽车有限公司';
+                this.voucher.salesman = '封柏';
+                this.voucher.operator = '陈海媚';
+                this.voucher.summary = '粤GD96926（拆机）';
+                this.voucher.items = [
+                    { name: '车载终端', spec: 'BSJ-A6XL', unit: '台', count: 1, price: 0, amount: 0, taxRate: '0%', taxAmount: 0 }
+                ];
+            }
+        },
+        searchVehicleForVoucher() {
+            const kw = (this.voucherSearchKw || '').trim().toLowerCase();
+            if (!kw) {
+                this.voucherSearchResults = [];
+                return;
+            }
+            const list = this.allRecords.length > 0 ? this.allRecords : (this.tableData.records || []);
+            this.voucherSearchResults = list.filter(r => 
+                (r.plate_no && r.plate_no.toLowerCase().includes(kw)) ||
+                (r.org_name && r.org_name.toLowerCase().includes(kw))
+            ).slice(0, 10);
+        },
+        fillVoucherFromVehicle(v) {
+            this.voucher.customerName = v.org_name || '个人客户';
+            this.voucher.salesman = v.manager || '封柏';
+            this.voucher.summary = v.plate_no ? `${v.plate_no}${v.remark ? ' (' + v.remark + ')' : ''}` : '';
+            this.voucher.orderDate = new Date().toISOString().slice(0, 10);
+            
+            const devName = v.device_name || '车载北斗终端';
+            const devPrice = v.device_receivable > 0 ? v.device_receivable : 290;
+            
+            this.voucher.items = [
+                { name: '车载终端', spec: devName, unit: '台', count: 1, price: devPrice, amount: devPrice, taxRate: '0%', taxAmount: 0 },
+                { name: '平台服务费', spec: '北斗平台服务', unit: '年', count: 1, price: v.service_receivable || 0, amount: v.service_receivable || 0, taxRate: '0%', taxAmount: 0 }
+            ];
+            this.voucherSearchResults = [];
+            this.voucherSearchKw = '';
+        },
+        createVoucherForVehicle(v) {
+            this.activeTab = 'voucher_center';
+            this.selectVoucherTemplate('XK');
+            this.fillVoucherFromVehicle(v);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+        addVoucherItem() {
+            if (this.voucher.type === 'CF') {
+                this.voucher.cfItems.push({ refNo: '', date: this.voucher.orderDate, total: 0, paid: 0, unpaid: 0, currentPay: 0 });
+            } else {
+                this.voucher.items.push({ name: '车载终端', spec: '首航 SH-GDF', unit: '台', count: 1, price: 0, amount: 0, taxRate: '0%', taxAmount: 0 });
+            }
+        },
+        removeVoucherItem(index) {
+            this.voucher.items.splice(index, 1);
+        },
+        removeCfItem(index) {
+            this.voucher.cfItems.splice(index, 1);
+        },
+        updateItemAmount(item) {
+            item.amount = Math.round((Number(item.count) || 0) * (Number(item.price) || 0) * 100) / 100;
+        },
+        printVoucher() {
+            window.print();
+        },
+        // 人民币金额转中文大写算法
+        numberToChineseRMB(n) {
+            if (n === undefined || n === null || n === '') return '零元整';
+            n = Number(n);
+            if (n === 0) return '整';
+            if (isNaN(n)) return '零元整';
+
+            const fraction = ['角', '分'];
+            const digit = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖'];
+            const unit = [
+                ['元', '万', '亿'],
+                ['', '拾', '佰', '仟']
+            ];
+
+            let head = n < 0 ? '负' : '';
+            n = Math.abs(n);
+            let s = '';
+
+            for (let i = 0; i < fraction.length; i++) {
+                s += (digit[Math.floor(n * 10 * Math.pow(10, i)) % 10] + fraction[i]).replace(/零./, '');
+            }
+            s = s || '整';
+            n = Math.floor(n);
+
+            for (let i = 0; i < unit[0].length && n > 0; i++) {
+                let p = '';
+                for (let j = 0; j < unit[1].length && n > 0; j++) {
+                    p = digit[n % 10] + unit[1][j] + p;
+                    n = Math.floor(n / 10);
+                }
+                s = p.replace(/(零.)*零$/, '').replace(/^$/, '零') + unit[0][i] + s;
+            }
+            return head + s.replace(/(零.)*零元/, '元').replace(/(零.)+/g, '零').replace(/^整$/, '零元整');
+        },
+
         async fetchOverview() {
             try {
-                // 优先请求本地后端 API
                 const res = await fetch('/api/overview');
                 if (!res.ok) throw new Error('API unavailable, falling back to static');
                 const data = await res.json();
@@ -135,7 +362,6 @@ const app = createApp({
                 this.isStaticMode = false;
                 this.$nextTick(() => { this.renderAllCharts(); });
             } catch (err) {
-                // 静态模式回退 (用于 GitHub Pages 等静态部署环境)
                 console.log('检测到静态托管环境，直接加载全量 JSON 数据集...');
                 this.isStaticMode = true;
                 try {
@@ -299,7 +525,6 @@ const app = createApp({
                 });
                 window.location.href = `/api/export?${params.toString()}`;
             } else {
-                // 静态模式导出 CSV
                 let list = this.allRecords || [];
                 const kw = (this.filters.keyword || '').trim().toLowerCase();
                 if (kw) {
@@ -325,7 +550,6 @@ const app = createApp({
                 document.body.removeChild(link);
             }
         },
-
         renderAllCharts() {
             this.renderStreamsChart();
             this.renderPieChart();
@@ -344,9 +568,7 @@ const app = createApp({
         renderStreamsChart() {
             const el = document.getElementById('streamsChart');
             if (!el || !this.overview.streams || this.overview.streams.length === 0) return;
-            if (!this.charts.streams) {
-                this.charts.streams = echarts.init(el);
-            }
+            if (!this.charts.streams) this.charts.streams = echarts.init(el);
             const theme = this.getChartTheme();
             const categories = this.overview.streams.map(s => s.name);
             const recData = this.overview.streams.map(s => s.receivable);
@@ -380,25 +602,9 @@ const app = createApp({
                     splitLine: { lineStyle: { color: theme.gridColor } }
                 },
                 series: [
-                    {
-                        name: '应收款',
-                        type: 'bar',
-                        barGap: '15%',
-                        data: recData,
-                        itemStyle: { color: '#6366f1', borderRadius: [4, 4, 0, 0] }
-                    },
-                    {
-                        name: '实收金额',
-                        type: 'bar',
-                        data: paidData,
-                        itemStyle: { color: '#10b981', borderRadius: [4, 4, 0, 0] }
-                    },
-                    {
-                        name: '未收/欠款',
-                        type: 'bar',
-                        data: unrecData,
-                        itemStyle: { color: '#f43f5e', borderRadius: [4, 4, 0, 0] }
-                    }
+                    { name: '应收款', type: 'bar', barGap: '15%', data: recData, itemStyle: { color: '#6366f1', borderRadius: [4, 4, 0, 0] } },
+                    { name: '实收金额', type: 'bar', data: paidData, itemStyle: { color: '#10b981', borderRadius: [4, 4, 0, 0] } },
+                    { name: '未收/欠款', type: 'bar', data: unrecData, itemStyle: { color: '#f43f5e', borderRadius: [4, 4, 0, 0] } }
                 ]
             };
             this.charts.streams.setOption(option);
@@ -406,13 +612,9 @@ const app = createApp({
         renderPieChart() {
             const el = document.getElementById('pieChart');
             if (!el || !this.overview.streams || this.overview.streams.length === 0) return;
-            if (!this.charts.pie) {
-                this.charts.pie = echarts.init(el);
-            }
+            if (!this.charts.pie) this.charts.pie = echarts.init(el);
             const theme = this.getChartTheme();
-            const pieData = this.overview.streams
-                .filter(s => s.received > 0)
-                .map(s => ({ name: s.name, value: s.received }));
+            const pieData = this.overview.streams.filter(s => s.received > 0).map(s => ({ name: s.name, value: s.received }));
 
             const option = {
                 backgroundColor: 'transparent',
@@ -423,26 +625,16 @@ const app = createApp({
                     textStyle: { color: theme.textColor },
                     formatter: '{b}: ¥{c} ({d}%)'
                 },
-                legend: {
-                    bottom: '0%',
-                    left: 'center',
-                    textStyle: { color: theme.textColor, fontSize: 11 }
-                },
+                legend: { bottom: '0%', left: 'center', textStyle: { color: theme.textColor, fontSize: 11 } },
                 series: [
                     {
                         name: '实收构成',
                         type: 'pie',
                         radius: ['45%', '70%'],
                         avoidLabelOverlap: false,
-                        itemStyle: {
-                            borderRadius: 6,
-                            borderColor: this.isDark ? '#1e293b' : '#ffffff',
-                            borderWidth: 2
-                        },
+                        itemStyle: { borderRadius: 6, borderColor: this.isDark ? '#1e293b' : '#ffffff', borderWidth: 2 },
                         label: { show: false, position: 'center' },
-                        emphasis: {
-                            label: { show: true, fontSize: 14, fontWeight: 'bold', color: theme.textColor }
-                        },
+                        emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold', color: theme.textColor } },
                         data: pieData
                     }
                 ]
@@ -452,9 +644,7 @@ const app = createApp({
         renderBizCategoryChart() {
             const el = document.getElementById('bizCategoryChart');
             if (!el || !this.overview.biz_categories || this.overview.biz_categories.length === 0) return;
-            if (!this.charts.bizCategory) {
-                this.charts.bizCategory = echarts.init(el);
-            }
+            if (!this.charts.bizCategory) this.charts.bizCategory = echarts.init(el);
             const theme = this.getChartTheme();
             const categories = this.overview.biz_categories.map(b => b.category);
             const counts = this.overview.biz_categories.map(b => b.count);
@@ -462,56 +652,17 @@ const app = createApp({
 
             const option = {
                 backgroundColor: 'transparent',
-                tooltip: {
-                    trigger: 'axis',
-                    backgroundColor: theme.tooltipBg,
-                    borderColor: theme.tooltipBorder,
-                    textStyle: { color: theme.textColor }
-                },
-                legend: {
-                    data: ['车辆数量 (辆)', '已收金额 (元)'],
-                    textStyle: { color: theme.textColor },
-                    top: 0
-                },
+                tooltip: { trigger: 'axis', backgroundColor: theme.tooltipBg, borderColor: theme.tooltipBorder, textStyle: { color: theme.textColor } },
+                legend: { data: ['车辆数量 (辆)', '已收金额 (元)'], textStyle: { color: theme.textColor }, top: 0 },
                 grid: { left: '3%', right: '4%', bottom: '3%', top: '15%', containLabel: true },
-                xAxis: {
-                    type: 'category',
-                    data: categories,
-                    axisLabel: { color: theme.textColor, rotate: 15 },
-                    axisLine: { lineStyle: { color: theme.gridColor } }
-                },
+                xAxis: { type: 'category', data: categories, axisLabel: { color: theme.textColor, rotate: 15 }, axisLine: { lineStyle: { color: theme.gridColor } } },
                 yAxis: [
-                    {
-                        type: 'value',
-                        name: '车辆数',
-                        nameTextStyle: { color: theme.textColor },
-                        axisLabel: { color: theme.textColor },
-                        splitLine: { lineStyle: { color: theme.gridColor } }
-                    },
-                    {
-                        type: 'value',
-                        name: '已收款 (元)',
-                        nameTextStyle: { color: theme.textColor },
-                        axisLabel: { color: theme.textColor },
-                        splitLine: { show: false }
-                    }
+                    { type: 'value', name: '车辆数', nameTextStyle: { color: theme.textColor }, axisLabel: { color: theme.textColor }, splitLine: { lineStyle: { color: theme.gridColor } } },
+                    { type: 'value', name: '已收款 (元)', nameTextStyle: { color: theme.textColor }, axisLabel: { color: theme.textColor }, splitLine: { show: false } }
                 ],
                 series: [
-                    {
-                        name: '车辆数量 (辆)',
-                        type: 'bar',
-                        data: counts,
-                        itemStyle: { color: '#3b82f6', borderRadius: [4, 4, 0, 0] }
-                    },
-                    {
-                        name: '已收金额 (元)',
-                        type: 'line',
-                        yAxisIndex: 1,
-                        smooth: true,
-                        data: receiveds,
-                        itemStyle: { color: '#10b981' },
-                        lineStyle: { width: 3 }
-                    }
+                    { name: '车辆数量 (辆)', type: 'bar', data: counts, itemStyle: { color: '#3b82f6', borderRadius: [4, 4, 0, 0] } },
+                    { name: '已收金额 (元)', type: 'line', yAxisIndex: 1, smooth: true, data: receiveds, itemStyle: { color: '#10b981' }, lineStyle: { width: 3 } }
                 ]
             };
             this.charts.bizCategory.setOption(option);
@@ -519,9 +670,7 @@ const app = createApp({
         renderManagerChart() {
             const el = document.getElementById('managerChart');
             if (!el || !this.overview.managers || this.overview.managers.length === 0) return;
-            if (!this.charts.manager) {
-                this.charts.manager = echarts.init(el);
-            }
+            if (!this.charts.manager) this.charts.manager = echarts.init(el);
             const theme = this.getChartTheme();
             const topManagers = this.overview.managers.slice(0, 10);
             const names = topManagers.map(m => m.manager).reverse();
@@ -530,44 +679,14 @@ const app = createApp({
 
             const option = {
                 backgroundColor: 'transparent',
-                tooltip: {
-                    trigger: 'axis',
-                    axisPointer: { type: 'shadow' },
-                    backgroundColor: theme.tooltipBg,
-                    borderColor: theme.tooltipBorder,
-                    textStyle: { color: theme.textColor }
-                },
-                legend: {
-                    data: ['已收款 (元)', '欠款 (元)'],
-                    textStyle: { color: theme.textColor },
-                    top: 0
-                },
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: theme.tooltipBg, borderColor: theme.tooltipBorder, textStyle: { color: theme.textColor } },
+                legend: { data: ['已收款 (元)', '欠款 (元)'], textStyle: { color: theme.textColor }, top: 0 },
                 grid: { left: '3%', right: '6%', bottom: '3%', top: '12%', containLabel: true },
-                xAxis: {
-                    type: 'value',
-                    axisLabel: { color: theme.textColor },
-                    splitLine: { lineStyle: { color: theme.gridColor } }
-                },
-                yAxis: {
-                    type: 'category',
-                    data: names,
-                    axisLabel: { color: theme.textColor }
-                },
+                xAxis: { type: 'value', axisLabel: { color: theme.textColor }, splitLine: { lineStyle: { color: theme.gridColor } } },
+                yAxis: { type: 'category', data: names, axisLabel: { color: theme.textColor } },
                 series: [
-                    {
-                        name: '已收款 (元)',
-                        type: 'bar',
-                        stack: 'total',
-                        data: paid,
-                        itemStyle: { color: '#10b981' }
-                    },
-                    {
-                        name: '欠款 (元)',
-                        type: 'bar',
-                        stack: 'total',
-                        data: unrec,
-                        itemStyle: { color: '#f43f5e', borderRadius: [0, 4, 4, 0] }
-                    }
+                    { name: '已收款 (元)', type: 'bar', stack: 'total', data: paid, itemStyle: { color: '#10b981' } },
+                    { name: '欠款 (元)', type: 'bar', stack: 'total', data: unrec, itemStyle: { color: '#f43f5e', borderRadius: [0, 4, 4, 0] } }
                 ]
             };
             this.charts.manager.setOption(option);
@@ -577,9 +696,7 @@ const app = createApp({
             if (!el || !this.overview.top_debtors || this.overview.top_debtors.length === 0) return;
             if (!this.charts.debtors) {
                 this.charts.debtors = echarts.init(el);
-                this.charts.debtors.on('click', (params) => {
-                    this.filterByOrg(params.name);
-                });
+                this.charts.debtors.on('click', (params) => { this.filterByOrg(params.name); });
             }
             const theme = this.getChartTheme();
             const debtors = this.overview.top_debtors.slice(0, 10).reverse();
@@ -600,34 +717,18 @@ const app = createApp({
                     }
                 },
                 grid: { left: '3%', right: '6%', bottom: '3%', top: '5%', containLabel: true },
-                xAxis: {
-                    type: 'value',
-                    axisLabel: { color: theme.textColor },
-                    splitLine: { lineStyle: { color: theme.gridColor } }
-                },
-                yAxis: {
-                    type: 'category',
-                    data: orgNames,
-                    axisLabel: { color: theme.textColor, fontSize: 11 }
-                },
+                xAxis: { type: 'value', axisLabel: { color: theme.textColor }, splitLine: { lineStyle: { color: theme.gridColor } } },
+                yAxis: { type: 'category', data: orgNames, axisLabel: { color: theme.textColor, fontSize: 11 } },
                 series: [
                     {
                         name: '欠款金额',
                         type: 'bar',
                         data: unreceived,
                         itemStyle: {
-                            color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [
-                                { offset: 0, color: '#f43f5e' },
-                                { offset: 1, color: '#fb7185' }
-                            ]),
+                            color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [{ offset: 0, color: '#f43f5e' }, { offset: 1, color: '#fb7185' }]),
                             borderRadius: [0, 4, 4, 0]
                         },
-                        label: {
-                            show: true,
-                            position: 'right',
-                            color: theme.textColor,
-                            formatter: '¥{c}'
-                        }
+                        label: { show: true, position: 'right', color: theme.textColor, formatter: '¥{c}' }
                     }
                 ]
             };
@@ -636,42 +737,18 @@ const app = createApp({
         renderTimelineChart() {
             const el = document.getElementById('timelineChart');
             if (!el || !this.overview.timeline || this.overview.timeline.length === 0) return;
-            if (!this.charts.timeline) {
-                this.charts.timeline = echarts.init(el);
-            }
+            if (!this.charts.timeline) this.charts.timeline = echarts.init(el);
             const theme = this.getChartTheme();
             const years = this.overview.timeline.map(t => t.year);
             const counts = this.overview.timeline.map(t => t.count);
 
             const option = {
                 backgroundColor: 'transparent',
-                tooltip: {
-                    trigger: 'axis',
-                    backgroundColor: theme.tooltipBg,
-                    borderColor: theme.tooltipBorder,
-                    textStyle: { color: theme.textColor }
-                },
+                tooltip: { trigger: 'axis', backgroundColor: theme.tooltipBg, borderColor: theme.tooltipBorder, textStyle: { color: theme.textColor } },
                 grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
-                xAxis: {
-                    type: 'category',
-                    data: years,
-                    axisLabel: { color: theme.textColor }
-                },
-                yAxis: {
-                    type: 'value',
-                    name: '车辆数',
-                    nameTextStyle: { color: theme.textColor },
-                    axisLabel: { color: theme.textColor },
-                    splitLine: { lineStyle: { color: theme.gridColor } }
-                },
-                series: [
-                    {
-                        name: '车辆数',
-                        type: 'bar',
-                        data: counts,
-                        itemStyle: { color: '#f59e0b', borderRadius: [4, 4, 0, 0] }
-                    }
-                ]
+                xAxis: { type: 'category', data: years, axisLabel: { color: theme.textColor } },
+                yAxis: { type: 'value', name: '车辆数', nameTextStyle: { color: theme.textColor }, axisLabel: { color: theme.textColor }, splitLine: { lineStyle: { color: theme.gridColor } } },
+                series: [{ name: '车辆数', type: 'bar', data: counts, itemStyle: { color: '#f59e0b', borderRadius: [4, 4, 0, 0] } }]
             };
             this.charts.timeline.setOption(option);
         },
