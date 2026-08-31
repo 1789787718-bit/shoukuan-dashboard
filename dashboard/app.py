@@ -35,19 +35,22 @@ _CACHE = {
     "data": None
 }
 
+import master_sync
+
 def load_data():
     if not os.path.exists(DATA_FILE):
-        import etl_process
-        print("未找到缓存数据文件，正在执行 ETL 提取...")
-        etl_process.run_etl()
+        print("未找到缓存数据文件，正在执行天宏主表融合...")
+        master_sync.run_master_fusion()
     
     with open(DATA_FILE, "r", encoding="utf-8") as f:
         _CACHE["data"] = json.load(f)
-    print(f"数据加载完成，共 {_CACHE['data']['kpis']['total_records']} 条记录。")
+    print(f"数据加载完成，共 {_CACHE['data']['kpis']['total_records']} 条记录 (天宏在网 {_CACHE['data']['kpis']['total_vehicles']} 辆)。")
 
 @app.on_event("startup")
 def startup_event():
     load_data()
+    # 启动每日凌晨 00:00:00 自动定时主表同步调度服务
+    master_sync.schedule_midnight_master_sync()
 
 @app.get("/api/overview")
 def get_overview():
@@ -74,6 +77,7 @@ def get_records(
     biz_category: Optional[str] = None,
     payment_status: Optional[str] = None,
     expiry_status: Optional[str] = None,
+    match_status: Optional[str] = None,
     sort_by: Optional[str] = "id",
     sort_order: Optional[str] = "asc"
 ):
@@ -92,8 +96,12 @@ def get_records(
             or kw in r["org_name"].lower()
             or kw in r["remark"].lower()
             or kw in r["biz_type"].lower()
-            or kw in r["device_name"].lower()
-            or kw in r["aftersales_item"].lower()
+            or kw in r.get("device_name", "").lower()
+            or kw in r.get("th_org_name", "").lower()
+            or kw in r.get("th_terminal_type", "").lower()
+            or kw in r.get("th_sim_num", "").lower()
+            or kw in r.get("match_status", "").lower()
+            or kw in r.get("aftersales_item", "").lower()
         ]
 
     # 2. 负责人筛选
@@ -112,22 +120,26 @@ def get_records(
     if expiry_status and expiry_status != "全部":
         filtered = [r for r in filtered if r["expiry_status"] == expiry_status]
 
-    # 6. 计算筛选结果的汇总统计
+    # 6. 财务建账与匹对状态筛选 (全部 / 已建财务账 / 待录财务 / 历史台账)
+    if match_status and match_status != "全部":
+        filtered = [r for r in filtered if r.get("match_status") == match_status]
+
+    # 7. 计算筛选结果的汇总统计
     total_count = len(filtered)
     filter_receivable = round(sum(r["total_receivable"] for r in filtered), 2)
     filter_received = round(sum(r["total_received"] for r in filtered), 2)
     filter_unreceived = round(sum(r["total_unreceived"] for r in filtered), 2)
 
-    # 7. 排序
+    # 8. 排序
     reverse = (sort_order == "desc")
     if sort_by in ["total_receivable", "total_received", "total_unreceived", "id"]:
         filtered.sort(key=lambda x: x.get(sort_by, 0), reverse=reverse)
     elif sort_by in ["primary_due_date", "service_due_date", "third_due_date"]:
         filtered.sort(key=lambda x: x.get(sort_by, "") or "", reverse=reverse)
-    elif sort_by in ["plate_no", "org_name", "manager"]:
+    elif sort_by in ["plate_no", "org_name", "manager", "match_status"]:
         filtered.sort(key=lambda x: x.get(sort_by, "") or "", reverse=reverse)
 
-    # 8. 分页切片
+    # 9. 分页切片
     start = (page - 1) * page_size
     end = start + page_size
     page_records = filtered[start:end]
@@ -156,13 +168,13 @@ def get_vehicle_detail(vehicle_id: int):
             return r
     raise HTTPException(status_code=404, detail="未找到该车辆档案")
 
+@app.get("/api/sync/tianhong")
 @app.get("/api/reload")
 def reload_data():
     try:
-        import etl_process
-        etl_process.run_etl()
+        ok, msg = master_sync.run_master_fusion()
         load_data()
-        return {"status": "ok", "message": "数据已重新从 Excel 解析并加载！"}
+        return {"status": "ok" if ok else "error", "message": msg}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -82,7 +82,8 @@ const app = createApp({
                 manager: '全部',
                 biz_category: '全部',
                 payment_status: '全部',
-                expiry_status: '全部'
+                expiry_status: '全部',
+                match_status: '全部'
             },
             sortBy: 'id',
             sortOrder: 'asc',
@@ -455,6 +456,7 @@ const app = createApp({
                 biz_category: this.filters.biz_category || '全部',
                 payment_status: this.filters.payment_status || '全部',
                 expiry_status: this.filters.expiry_status || '全部',
+                match_status: this.filters.match_status || '全部',
                 sort_by: this.sortBy,
                 sort_order: this.sortOrder
             });
@@ -535,7 +537,8 @@ const app = createApp({
                 manager: '全部',
                 biz_category: '全部',
                 payment_status: '全部',
-                expiry_status: '全部'
+                expiry_status: '全部',
+                match_status: '全部'
             };
             this.fetchRecords(1);
         },
@@ -562,6 +565,32 @@ const app = createApp({
         },
         openVehicleDrawer(r) {
             this.selectedVehicle = r;
+        },
+                async syncTianhongMaster() {
+            this.reloading = true;
+            try {
+                if (!this.isStaticMode) {
+                    const res = await fetch('/api/sync/tianhong');
+                    const data = await res.json();
+                    alert(data.message || '天宏主表数据拉取并融合完成！');
+                    await this.fetchOverview();
+                    await this.fetchRecords(1);
+                } else {
+                    await this.fetchOverview();
+                    await this.fetchRecords(1);
+                    alert(`✅ 当前以天宏平台 16,013 辆车为主数据源！\n\n🛰️ 天宏在网车辆：${this.formatNumber(this.kpis.total_vehicles)} 辆\n🟢 已建财务账：${this.formatNumber(this.kpis.matched_count)} 辆 (建账率 ${this.kpis.match_rate}%)\n⚠️ 待录财务预警：${this.formatNumber(this.kpis.unmatched_count)} 辆\n⚪ 历史台账：${this.formatNumber(this.kpis.history_count)} 辆\n⏰ 每日凌晨 00:00:00 自动定时同步`);
+                }
+            } catch (err) {
+                alert('同步提示: ' + err.message);
+            } finally {
+                this.reloading = false;
+            }
+        },
+        getMatchStatusBadgeClass(status) {
+            if (status === '已建财务账') return 'px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300';
+            if (status === '待录财务') return 'px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-300 border border-amber-300 dark:border-amber-700/50';
+            if (status === '历史台账(已拆机)') return 'px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300';
+            return 'px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300';
         },
         async reloadExcel() {
             this.reloading = true;

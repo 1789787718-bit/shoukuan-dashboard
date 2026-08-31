@@ -26,7 +26,7 @@
     <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="styles.css?v=2026083101">
+    <link rel="stylesheet" href="styles.css?v=2026083105">
 </head>
 <body class="bg-slate-50 text-slate-800 dark:bg-darkbg dark:text-slate-100 min-h-screen transition-colors duration-200">
     <div id="app" v-cloak class="flex flex-col min-h-screen">
@@ -96,7 +96,7 @@
                             </span>
                         </div>
                         <p class="text-xs text-slate-500 dark:text-slate-400">
-                            数据源：天宏平台 ({{ overview.kpis ? overview.kpis.total_records.toLocaleString() : 0 }} 条明细) · 更新时间：{{ overview.generated_at || '--' }}
+                            主数据源：天宏平台 (在网 {{ formatNumber(kpis.total_vehicles) }} 辆 · 覆盖 {{ formatNumber(kpis.total_orgs) }} 家组织) · 财务建账率：{{ kpis.match_rate }}% · 更新时间：{{ overview.generated_at || '--' }}
                         </p>
                     </div>
                 </div>
@@ -105,6 +105,11 @@
                     <button v-if="!isStaticMode" @click="reloadExcel" :disabled="reloading" class="inline-flex items-center px-3.5 py-2 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition">
                         <i :class="['fas fa-sync-alt mr-1.5', reloading ? 'fa-spin text-blue-500' : '']"></i>
                         {{ reloading ? '正在重载...' : '重新同步 Excel' }}
+                    </button>
+
+                    <button @click="syncTianhongMaster" :disabled="reloading" class="inline-flex items-center px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition">
+                        <i :class="['fas fa-sync-alt mr-1.5', reloading ? 'fa-spin text-amber-300' : '']"></i>
+                        <span>{{ reloading ? '正在拉取天宏主表...' : '⚡ 同步天宏主数据' }}</span>
                     </button>
 
                     <button @click="exportCurrentFiltered" class="inline-flex items-center px-3.5 py-2 text-xs font-medium rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition">
@@ -127,19 +132,19 @@
             
             <!-- 6大核心指标卡片 -->
             <div class="no-print grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                <div class="p-4 rounded-2xl bg-white dark:bg-darkcard border border-slate-200 dark:border-darkborder shadow-sm flex flex-col justify-between">
+                <div class="p-4 rounded-2xl bg-white dark:bg-darkcard border border-indigo-200 dark:border-indigo-900/60 shadow-sm flex flex-col justify-between relative overflow-hidden">
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">服务车辆总数</span>
-                        <span class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-sm">
-                            <i class="fas fa-truck"></i>
+                        <span class="text-xs font-semibold text-indigo-600 dark:text-indigo-400">天宏在网车辆主表</span>
+                        <span class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-sm">
+                            <i class="fas fa-satellite-dish"></i>
                         </span>
                     </div>
                     <div class="mt-2">
-                        <div class="text-2xl font-bold text-slate-900 dark:text-white">
+                        <div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
                             {{ formatNumber(kpis.total_vehicles) }} <span class="text-xs font-normal text-slate-500">辆</span>
                         </div>
                         <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 truncate">
-                            覆盖 <span class="font-semibold text-slate-700 dark:text-slate-300">{{ formatNumber(kpis.total_orgs) }}</span> 家企业/客户
+                            已建账 <strong class="text-emerald-600">{{ formatNumber(kpis.matched_count) }}</strong> · 待录入 <strong class="text-amber-500">{{ formatNumber(kpis.unmatched_count) }}</strong>
                         </div>
                     </div>
                 </div>
@@ -1172,7 +1177,7 @@
             <!-- Tab 4: 车辆明细多维检索与档案 -->
             <div v-show="activeTab === 'explorer'" class="space-y-6">
                 <div class="p-5 rounded-2xl bg-white dark:bg-darkcard border border-slate-200 dark:border-darkborder shadow-sm space-y-4">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                         <div>
                             <label class="block text-xs font-medium text-slate-500 mb-1">关键词搜索</label>
                             <div class="relative">
@@ -1220,12 +1225,25 @@
 
                         <div>
                             <label class="block text-xs font-medium text-slate-500 mb-1">服务到期状态</label>
+                            <select 
+                                v-model="filters.expiry_status" 
+                                @change="fetchRecords(1)"
+                                class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option v-for="e in overview.options.expiry_statuses" :key="e" :value="e">{{ e }}</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">财务建账状态</label>
                             <div class="flex space-x-2">
                                 <select 
-                                    v-model="filters.expiry_status" 
+                                    v-model="filters.match_status" 
                                     @change="fetchRecords(1)"
                                     class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-darkborder bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    <option v-for="e in overview.options.expiry_statuses" :key="e" :value="e">{{ e }}</option>
+                                    <option value="全部">全部建账状态</option>
+                                    <option value="已建财务账">🟢 已建财务账</option>
+                                    <option value="待录财务">⚠️ 待录财务预警</option>
+                                    <option value="历史台账(已拆机)">⚪ 历史台账(已拆机)</option>
                                 </select>
                                 <button @click="resetFilters" class="px-3 py-1.5 text-xs rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-medium">
                                     重置
@@ -1274,6 +1292,7 @@
                                         总欠款 <i :class="getSortIcon('total_unreceived')"></i>
                                     </th>
                                     <th class="py-3 px-3">收款状态</th>
+                                    <th class="py-3 px-3">建账与匹对</th>
                                     <th class="py-3 px-3">到期状态</th>
                                     <th class="py-3 px-3 text-center">操作</th>
                                 </tr>
@@ -1298,6 +1317,11 @@
                                     <td class="py-2.5 px-3">
                                         <span :class="getStatusBadgeClass(r.payment_status)">
                                             {{ r.payment_status }}
+                                        </span>
+                                    </td>
+                                    <td class="py-2.5 px-3">
+                                        <span :class="getMatchStatusBadgeClass(r.match_status)">
+                                            {{ r.match_status || '待核算' }}
                                         </span>
                                     </td>
                                     <td class="py-2.5 px-3">
@@ -1364,11 +1388,11 @@
                                 <h2 class="text-xl font-bold text-slate-900 dark:text-white">
                                     {{ selectedVehicle.plate_no || '未录入车牌' }}
                                 </h2>
+                                <span :class="getMatchStatusBadgeClass(selectedVehicle.match_status)">
+                                    {{ selectedVehicle.match_status || '已建账' }}
+                                </span>
                                 <span :class="getStatusBadgeClass(selectedVehicle.payment_status)">
                                     {{ selectedVehicle.payment_status }}
-                                </span>
-                                <span :class="getExpiryBadgeClass(selectedVehicle.expiry_status)">
-                                    {{ selectedVehicle.expiry_status }}
                                 </span>
                             </div>
                             <p class="text-xs text-slate-500 mt-1">
@@ -1387,6 +1411,25 @@
                     </div>
 
                     <div class="p-6 flex-1 overflow-y-auto space-y-6">
+                        <!-- 天宏平台建档与硬件档案 -->
+                        <div class="p-4 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/50 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <h4 class="font-bold text-xs text-indigo-900 dark:text-indigo-200 flex items-center">
+                                    <i class="fas fa-satellite text-indigo-500 mr-2"></i> 天宏平台入网档案 (主表基准)
+                                </h4>
+                                <span :class="getMatchStatusBadgeClass(selectedVehicle.match_status)">
+                                    {{ selectedVehicle.match_status }}
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-xs pt-1">
+                                <div><span class="text-slate-400">天宏组织：</span><span class="font-medium text-slate-700 dark:text-slate-200">{{ selectedVehicle.th_org_name || selectedVehicle.org_name }}</span></div>
+                                <div><span class="text-slate-400">运营状态：</span><span class="font-medium text-slate-700 dark:text-slate-200">{{ selectedVehicle.th_operate_state || '正常' }}</span></div>
+                                <div><span class="text-slate-400">终端型号：</span><span class="font-medium text-slate-700 dark:text-slate-200">{{ selectedVehicle.th_terminal_type || selectedVehicle.device_name }}</span></div>
+                                <div><span class="text-slate-400">SIM 卡号：</span><span class="font-mono text-slate-700 dark:text-slate-200">{{ selectedVehicle.th_sim_num || '--' }}</span></div>
+                                <div v-if="selectedVehicle.th_frame_no" class="col-span-2"><span class="text-slate-400">车架/终端号：</span><span class="font-mono text-slate-700 dark:text-slate-200">{{ selectedVehicle.th_frame_no }}</span></div>
+                            </div>
+                        </div>
+
                         <div class="grid grid-cols-3 gap-3 p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/40">
                             <div>
                                 <span class="text-xs text-slate-500 dark:text-slate-400">总应收款</span>
@@ -1495,6 +1538,6 @@
         </footer>
     </div>
 
-    <script src="app.js?v=2026083101"></script>
+    <script src="app.js?v=2026083105"></script>
 </body>
 </html>
